@@ -3,3 +3,5 @@ numpy==1.22.4
 ipython==8.3.0 # for notebooks
 seaborn==0.11.2 # for visualizations
 pre-commit==2.19.0
+scikit-learn==1.1.1
+execution-time-wrapper==1.0.0
