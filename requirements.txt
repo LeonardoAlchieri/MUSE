@@ -5,3 +5,4 @@ seaborn==0.11.2 # for visualizations
 pre-commit==2.19.0
 scikit-learn==1.1.1
 execution-time-wrapper==1.0.0
+tqdm==4.64.0
