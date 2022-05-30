@@ -128,6 +128,7 @@ class SmileData(object):
         return data
 
     def _get_feature_type_from_feature_name(self, feature_name: str) -> str:
+        # TODO: add docstring
         if feature_name in self.hand_crafted_features:
             return "hand_crafted_features"
         elif feature_name in self.deep_features:
@@ -142,6 +143,7 @@ class SmileData(object):
         get_labels: bool = True,
         test: bool = False,
     ) -> ndarray | tuple[ndarray, ndarray]:
+        # TODO: add docstring
         if isinstance(features, tuple):
             logger.debug(
                 f"Got features as tuple: {features}. First position is type of features, while second is name of feature."

@@ -1,5 +1,6 @@
 from sys import path
 from logging import getLogger, basicConfig, DEBUG, INFO, WARNING
+from warnings import warn
 from numpy import ndarray
 from os.path import basename, join as join_paths
 from pandas import DataFrame
@@ -49,10 +50,10 @@ def main(random_state: int):
     data = SmileData(path_to_data=path_to_data)
 
     features: list[tuple[str, str]] = [
-        ("deep_features", "ECG_features_C"),
-        ("deep_features", "ECG_features_T"),
         ("hand_crafted_features", "ECG_features"),
         ("hand_crafted_features", "GSR_features"),
+        ("deep_features", "ECG_features_C"),
+        ("deep_features", "ECG_features_T"),
     ]
 
     join_types: list[str] = [
@@ -65,7 +66,6 @@ def main(random_state: int):
         KNeighborsClassifier(),
         SVC(),
         GaussianProcessClassifier(),
-        RBF(),
         DecisionTreeClassifier(),
         AdaBoostClassifier(),
         GaussianNB(),
@@ -85,15 +85,21 @@ def main(random_state: int):
             x, y = data.data_feature_level_joined(
                 join_type=join_type, features=feature_tuple, get_labels=True, test=False
             )
-
-            for ml_model in tqdm(
-                ml_models,
-                desc=f"feature tuple: {feature_tuple}\tjoin type: {join_type}",
-            ):
-                scores = cross_val_score(
-                    estimator=ml_model, X=x, y=y, cv=cv, n_jobs=n_jobs
+            try:
+                for ml_model in tqdm(
+                    ml_models,
+                    desc=f"feature tuple: {feature_tuple}\tjoin type: {join_type}",
+                ):
+                    logger.info(f"Current model {ml_model}")
+                    scores = cross_val_score(
+                        estimator=ml_model, X=x, y=y, cv=cv, n_jobs=n_jobs
+                    )
+                    results[ml_model.__class__.__name__] = scores
+            except Exception as e:
+                warn(
+                    f"Some error occurd during the training. Skipping to next session. -> {e}"
                 )
-                results[ml_model.__class__.__name__] = scores
+                continue
 
         del x
         picking_trash_up()
