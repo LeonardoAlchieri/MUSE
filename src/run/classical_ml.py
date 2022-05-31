@@ -23,6 +23,7 @@ from sklearn.base import ClassifierMixin
 path.append(".")
 from src.data.smile import SmileData
 from src.utils.io import load_config, create_output_folder
+from src.utils import make_binary
 
 
 basicConfig(filename="logs/run/classical_ml.log", level=INFO)
@@ -42,6 +43,7 @@ def main(random_state: int):
     cv: int = configs["cross_validation_folds"]
     n_jobs: int = configs["n_jobs"]
     path_to_data: str = configs["path_to_data"]
+    binary: bool = configs["binary"]
 
     current_session_path = create_output_folder(
         path_to_config=path_to_config, task=_filename
@@ -64,7 +66,7 @@ def main(random_state: int):
     # TODO: do some optimization with regard the hyperparameter
     ml_models: list[ClassifierMixin] = [
         KNeighborsClassifier(),
-        SVC(),
+
         GaussianProcessClassifier(),
         DecisionTreeClassifier(),
         AdaBoostClassifier(),
@@ -85,16 +87,20 @@ def main(random_state: int):
             x, y = data.data_feature_level_joined(
                 join_type=join_type, features=feature_tuple, get_labels=True, test=False
             )
+            
+            if binary:
+                y = make_binary(y)
             try:
                 for ml_model in tqdm(
                     ml_models,
                     desc=f"feature tuple: {feature_tuple}\tjoin type: {join_type}",
                 ):
                     logger.info(f"Current model {ml_model}")
+                    
                     scores = cross_val_score(
                         estimator=ml_model, X=x, y=y, cv=cv, n_jobs=n_jobs
                     )
-                    results[ml_model.__class__.__name__] = scores
+                    results[f"{join_type}_{feature_tuple}_{ml_model.__class__.__name__}"] = scores
             except Exception as e:
                 warn(
                     f"Some error occurd during the training. Skipping to next session. -> {e}"
