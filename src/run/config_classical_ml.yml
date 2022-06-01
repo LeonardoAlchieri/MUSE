@@ -1,4 +1,6 @@
 cross_validation_folds: 10
-n_jobs: 12
+n_jobs: 4
 path_to_data: "./data.nosync/dataset_smile_challenge.npy"
-binary: False
+missing_values_inputation: "average" # or "remove_user", "previous_val", "mediam", "most_frequent"
+binary: True
+debug_mode: False

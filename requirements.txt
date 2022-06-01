@@ -6,3 +6,4 @@ pre-commit==2.19.0
 scikit-learn==1.1.1
 execution-time-wrapper==1.0.0
 tqdm==4.64.0
+xgboost==1.5.1
