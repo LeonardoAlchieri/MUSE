@@ -23,8 +23,15 @@ class SmileData(object):
 
     hand_crafted_features: list[str] = ["ECG_features", "GSR_features"]
     deep_features: list[str] = ["ECG_features_C", "ECG_features_T"]
+    unravelled: bool = False
 
-    def __init__(self, path_to_data: str, test: bool = False, debug_mode: bool = False):
+    def __init__(
+        self,
+        path_to_data: str,
+        test: bool = False,
+        debug_mode: bool = False,
+        unravelled: bool = False,
+    ):
         """Class used to load and get the different features of the Smile dataset. Indeed,
         the data, as provided by the authors (see https://compwell.rice.edu/workshops/embc2022/challenge),
         is structured as a nested dictionary.
@@ -42,6 +49,7 @@ class SmileData(object):
 
         data = load_smile_data(path_to_data)
         self.data = data["train"] if not test else data["test"]
+        self.unravelled = unravelled
         if debug_mode:
             logger.warning(
                 "Debug mode activated, only a portion of the dataset will be loaded"
@@ -80,7 +88,11 @@ class SmileData(object):
 
         if joined:
             return concatenate(
-                [data["ECG_features"], data["GSR_features"]], axis=concat_axis
+                [
+                    data[self.hand_crafted_features[0]],
+                    data[self.hand_crafted_features[1]],
+                ],
+                axis=concat_axis,
             )
         else:
             return data
@@ -110,7 +122,8 @@ class SmileData(object):
 
         if joined:
             return concatenate(
-                [data["ECG_features_C"], data["ECG_features_T"]], axis=concat_axis
+                [data[self.deep_features[0]], data[self.deep_features[1]]],
+                axis=concat_axis,
             )
         else:
             return data
@@ -138,6 +151,16 @@ class SmileData(object):
             array to substitute the current data
         """
         self.data["deep_features"][feature] = data
+
+    def set_labels(self, labels: ndarray) -> None:
+        """Method to set the labels of the dataset.
+
+        Parameters
+        ----------
+        labels : ndarray
+            array to substitute the current data
+        """
+        self.data["labels"] = labels
 
     def get_labels(self) -> ndarray:
         """This method returns the labels of the dataset.
@@ -268,3 +291,51 @@ class SmileData(object):
             self.set_deep_feature(feature_name, data)
         else:
             raise ValueError(f'Feature type "{feature_type}" not found in the dataset')
+
+    def _get_time_duration(self):
+        """Method to get the time duration of the dataset.
+
+        Will fail the data has been unravelled.
+        """
+        hand_crafted_data: dict[str, ndarray] = self.get_handcrafted_features(
+            joined=False
+        )
+        deep_data: dict[str, ndarray] = self.get_deep_features(joined=False)
+        durations = list()
+        durations.append(
+            [hand_crafted_data[feat].shape[1] for feat in self.hand_crafted_features]
+        )
+        durations.append([deep_data[feat].shape[1] for feat in self.deep_features])
+        duration: list = list(set(durations))
+        if len(duration) > 1:
+            raise ValueError(
+                f"The dataset has different durations for handcrafted and deep features. "
+                f"Got {duration}."
+            )
+        else:
+            return duration[0]
+
+    def unravel(self):
+        """Method to unravel the dataset.
+
+        The method unravels the dataset by concatenating all the features in the dataset.
+        """
+        hand_crafted_data: dict[str, ndarray] = self.get_handcrafted_features(
+            joined=False
+        )
+        deep_data: dict[str, ndarray] = self.get_deep_features(joined=False)
+        for feat in self.hand_crafted_features:
+            self.set_handcrafted_feature(
+                data=hand_crafted_data[feat].reshape(
+                    -1, hand_crafted_data[feat].shape[-1]
+                ),
+                feature=feat,
+            )
+        for feat in self.deep_features:
+            self.set_deep_feature(
+                data=deep_data[feat].reshape(-1, deep_data[feat].shape[-1]),
+                feature=feat,
+            )
+
+        self.set_labels(self.get_labels(), self._get_time_duration())
+        self.unravelled: bool = True
