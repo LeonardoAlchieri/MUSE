@@ -43,11 +43,15 @@ class SmileData(object):
         data = load_smile_data(path_to_data)
         self.data = data["train"] if not test else data["test"]
         if debug_mode:
-            logger.warning("Debug mode activated, only a portion of the dataset will be loaded")
+            logger.warning(
+                "Debug mode activated, only a portion of the dataset will be loaded"
+            )
             for feature_type in self.data.keys():
                 if isinstance(self.data[feature_type], dict):
                     for feature in self.data[feature_type].keys():
-                        self.data[feature_type][feature] = self.data[feature_type][feature][:50]
+                        self.data[feature_type][feature] = self.data[feature_type][
+                            feature
+                        ][:50]
                 else:
                     self.data[feature_type] = self.data[feature_type][:50]
 

@@ -23,7 +23,13 @@ path.append(".")
 from src.data.smile import SmileData
 from src.utils.io import load_config, create_output_folder
 from src.utils import make_binary
-from src.utils.inputation import filling_mean,filling_prev,filling_median,filling_mode,filling_max
+from src.utils.inputation import (
+    filling_mean,
+    filling_prev,
+    filling_median,
+    filling_mode,
+    filling_max,
+)
 
 
 basicConfig(filename="logs/run/classical_ml.log", level=INFO)
@@ -49,10 +55,10 @@ def main(random_state: int):
 
     if not debug_mode:
         current_session_path = create_output_folder(
-        path_to_config=path_to_config, task=_filename
-    )
+            path_to_config=path_to_config, task=_filename
+        )
     else:
-        print('DEBUG MODE ACTIVATED!')
+        print("DEBUG MODE ACTIVATED!")
 
     data = SmileData(path_to_data=path_to_data, test=False, debug_mode=debug_mode)
 
@@ -66,7 +72,7 @@ def main(random_state: int):
     join_types: list[str] = [
         "feature_average",  # (2070, 60, 1)
         "concat_feature_level",  # (2070, 60*M), where M = 8, 12, 256, 64
-        "window_average", # (2070, 1, 8)
+        "window_average",  # (2070, 1, 8)
     ]  # "concat_label_level"] # (2070*60, M), where M = 8, 12, 256, 512
 
     # NOTE: in the notebook on this repo we show that this is the only feature w/ missing values
@@ -82,7 +88,7 @@ def main(random_state: int):
         GaussianNB(),
         QuadraticDiscriminantAnalysis(),
         RandomForestClassifier(),
-        XGBClassifier(n_jobs=n_jobs)
+        XGBClassifier(n_jobs=n_jobs),
     ]
 
     # "average" # or "remove_user", "previous_val", "mediam", "most_frequent"
@@ -135,7 +141,7 @@ def main(random_state: int):
         results.to_csv(join_paths(current_session_path, "cross_val.csv"))
     else:
         print(results)
-        print('SUCCESS')
+        print("SUCCESS")
 
 
 if __name__ == "__main__":
