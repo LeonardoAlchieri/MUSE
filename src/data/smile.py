@@ -50,7 +50,10 @@ class SmileData(object):
         """
 
         data = load_smile_data(path_to_data)
-        self.data = data["train"] if not test else data["test"]
+        if "train" in data.keys() or "test" in data.keys():
+            self.data = data["train"] if not test else data["test"]
+        else:
+            self.data = data
         self.unravelled = unravelled
         if debug_mode:
             logger.warning(
@@ -262,18 +265,17 @@ class SmileData(object):
         elif join_type == "concat_label_level":
             # TODO: implement where for each label, we have to spawn 60 more!
             # return data.reshape(-1, data.shape[-1]) if get_labels else tuple(data.reshape(-1, data.shape[-1]),
-            ...
-            raise NotImplementedError(
-                "Leo was lazy and has not implemented this join_type yet! 😴"
-            )
+            return data, self.get_labels()
         else:
             raise ValueError(
                 f'Join type "{join_type}" not recognized. Accepted values are "average", "concat_feature_level" and "concat_label_level"'
             )
 
     def fill_missing_values(
-        self, features: tuple[str, str] | str, filling_method: Callable
+        self, features: tuple[str, str] | str, filling_method: Callable | None
     ):
+        if filling_method is None:
+            return None
         feature_name, feature_type = self.check_features_input(features=features)
 
         if feature_type == "hand_crafted_features":

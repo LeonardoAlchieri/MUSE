@@ -1,6 +1,9 @@
 cross_validation_folds: 10
 n_jobs: 10
-path_to_data: "./data.nosync/dataset_smile_challenge.npy"
-missing_values_inputation: "median" # accepted_values: average, previous_val, median, most_frequent, max_val
+time_length: 60
+path_to_data: "./data.nosync/dataset_smile_challenge_unravelled_train.npy"
+missing_values_inputation: "none" # accepted_values: average, previous_val, median, most_frequent, max_val
+time_merge_strategy: 'mean' # accepted value: mean, majority_voting
 binary: True
 debug_mode: False
+unravelled: True

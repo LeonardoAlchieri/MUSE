@@ -1,9 +1,11 @@
+from re import I
 from sys import path
 from logging import getLogger, basicConfig, DEBUG, INFO, WARNING
 from typing import Callable
 from os.path import basename, join as join_paths
 from pandas import DataFrame
 from numpy.random import seed as set_seed
+from numpy import ndarray
 from gc import collect as picking_trash_up
 from tqdm import tqdm
 
@@ -16,6 +18,7 @@ from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 from sklearn.base import ClassifierMixin
+from sklearn.metrics import accuracy_score
 
 from xgboost import XGBClassifier
 
@@ -30,10 +33,12 @@ from src.utils.inputation import (
     filling_mode,
     filling_max,
 )
+from src.utils.cv import make_unravelled_folds
+from src.utils.score import MergeScorer
 
 
-basicConfig(filename="logs/run/classical_ml.log", level=INFO)
 _filename: str = basename(__file__).split(".")[0][4:]
+basicConfig(filename=f"logs/run/{_filename}.log", level=INFO)
 logger = getLogger(_filename)
 
 
@@ -46,11 +51,14 @@ def main(random_state: int):
     configs = load_config(path=path_to_config)
     logger.debug("Configs loaded")
 
-    cv: int = configs["cross_validation_folds"]
+    cv_num: int = configs["cross_validation_folds"]
     n_jobs: int = configs["n_jobs"]
+    time_length: int = configs["time_length"]
     path_to_data: str = configs["path_to_data"]
     missing_values_inputation: str = configs["missing_values_inputation"]
+    time_merge_strategy: str = configs["time_merge_strategy"]
     binary: bool = configs["binary"]
+    unravelled: bool = configs["unravelled"]
     debug_mode: bool = configs["debug_mode"]
 
     if not debug_mode:
@@ -69,25 +77,30 @@ def main(random_state: int):
         ("deep_features", "ECG_features_T"),
     ]
     # 2070, 60, M
-    join_types: list[str] = [
-        "feature_average",  # (2070, 60, 1)
-        "concat_feature_level",  # (2070, 60*M), where M = 8, 12, 256, 64
-        "window_average",  # (2070, 1, 8)
-    ]  # "concat_label_level"] # (2070*60, M), where M = 8, 12, 256, 512
+    if not unravelled:
+        join_types: list[str] = [
+            "feature_average",  # (2070, 60, 1)
+            "concat_feature_level",  # (2070, 60*M), where M = 8, 12, 256, 64
+            "window_average",  # (2070, 1, 8)
+        ]
+    else:
+        join_types: list[str] = [
+            "concat_label_level"
+        ]  # (2070*60, M), where M = 8, 12, 256, 512
 
     # NOTE: in the notebook on this repo we show that this is the only feature w/ missing values
     feature_missing_values: tuple[str, str] = ("hand_crafted_features", "ECG_features")
 
     # TODO: do some optimization with regard the hyperparameter
     ml_models: list[ClassifierMixin] = [
-        KNeighborsClassifier(),
+        KNeighborsClassifier(n_jobs=n_jobs),
         SVC(),
-        GaussianProcessClassifier(),
+        GaussianProcessClassifier(n_jobs=n_jobs),
         DecisionTreeClassifier(),
         AdaBoostClassifier(),
         GaussianNB(),
         QuadraticDiscriminantAnalysis(),
-        RandomForestClassifier(),
+        RandomForestClassifier(n_jobs=n_jobs),
         XGBClassifier(n_jobs=n_jobs),
     ]
 
@@ -98,11 +111,12 @@ def main(random_state: int):
         median=filling_median,
         most_frequent=filling_mode,
         max_val=filling_max,
+        none=None,
         # remove_user=filling_remove_user
     )
 
     results = DataFrame(
-        index=[i for i in range(cv)],
+        index=[i for i in range(cv_num)],
     )
     for feature_tuple in features:
         # NOTE: the shape will be: (2070, 60, N_FEATURES)
@@ -127,8 +141,27 @@ def main(random_state: int):
             ):
                 logger.info(f"Current model {ml_model}")
 
+                if unravelled:
+                    # if the data is unravelled, we need a custom way to give
+                    # folds to teh cross_val_score method
+                    cv: list[tuple[ndarray, ndarray]] = make_unravelled_folds(
+                        t=time_length, n_folds=cv_num, n_data=2070
+                    )
+                else:
+                    cv: int = cv_num
+
                 scores = cross_val_score(
-                    estimator=ml_model, X=x, y=y, cv=cv, n_jobs=n_jobs
+                    estimator=ml_model,
+                    X=x,
+                    y=y,
+                    cv=cv,
+                    n_jobs=n_jobs,
+                    scoring=MergeScorer(
+                        scorer=accuracy_score,
+                        merge_strategy=time_merge_strategy,
+                        time_length=time_length,
+                    ).score,
+                    error_score="raise",
                 )
                 results[
                     f"{join_type}_{feature_tuple}_{ml_model.__class__.__name__}"
