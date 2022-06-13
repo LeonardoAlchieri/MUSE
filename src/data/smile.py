@@ -1,5 +1,5 @@
-from typing import Callable
-from numpy import concatenate, isin, ndarray
+from typing import Callable, Union
+from numpy import concatenate, isin, ndarray, repeat
 from logging import getLogger
 
 from src.utils.io import load_smile_data
@@ -297,15 +297,19 @@ class SmileData(object):
 
         Will fail the data has been unravelled.
         """
+        if self.unravelled:
+            raise ValueError(
+                "The dataset has been unravelled. You can't get the time duration of the dataset."
+            )
         hand_crafted_data: dict[str, ndarray] = self.get_handcrafted_features(
             joined=False
         )
         deep_data: dict[str, ndarray] = self.get_deep_features(joined=False)
         durations = list()
-        durations.append(
+        durations.extend(
             [hand_crafted_data[feat].shape[1] for feat in self.hand_crafted_features]
         )
-        durations.append([deep_data[feat].shape[1] for feat in self.deep_features])
+        durations.extend([deep_data[feat].shape[1] for feat in self.deep_features])
         duration: list = list(set(durations))
         if len(duration) > 1:
             raise ValueError(
@@ -315,11 +319,24 @@ class SmileData(object):
         else:
             return duration[0]
 
-    def unravel(self):
+    def unravel(self, inplace: bool = True) -> Union[None, "SmileData"]:
         """Method to unravel the dataset.
 
         The method unravels the dataset by concatenating all the features in the dataset.
+
+        Parameters
+        ----------
+        inplace : bool, optional
+            if True, the method will modify the smile data inplace. The default is True.
+
+        Returns
+        -------
+        None | 'SmileData'
+            if inplace is True, the method returns None. Otherwise, it returns a new SmileData object.
         """
+
+        self.set_labels(repeat(self.get_labels(), self._get_time_duration()))
+
         hand_crafted_data: dict[str, ndarray] = self.get_handcrafted_features(
             joined=False
         )
@@ -337,5 +354,4 @@ class SmileData(object):
                 feature=feat,
             )
 
-        self.set_labels(self.get_labels(), self._get_time_duration())
         self.unravelled: bool = True

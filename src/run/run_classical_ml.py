@@ -33,7 +33,7 @@ from src.utils.inputation import (
 
 
 basicConfig(filename="logs/run/classical_ml.log", level=INFO)
-_filename: str = basename(__file__).split(".")[0]
+_filename: str = basename(__file__).split(".")[0][4:]
 logger = getLogger(_filename)
 
 

@@ -10,7 +10,7 @@ from src.utils.io import load_config, create_output_folder
 from src.data.smile import SmileData
 
 basicConfig(filename="logs/run/classical_ml.log", level=INFO)
-_filename: str = basename(__file__).split(".")[0]
+_filename: str = basename(__file__).split(".")[0][4:]
 logger = getLogger(_filename)
 
 
@@ -26,6 +26,10 @@ def main(random_state: int):
     debug_mode: bool = configs["debug_mode"]
 
     data = SmileData(path_to_data=path_to_data, test=False, debug_mode=debug_mode)
+
+    data.unravel(inplace=True)
+
+    data.save(path=..., format="obj")
 
 
 if __name__ == "__main__":
