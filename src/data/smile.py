@@ -1,8 +1,10 @@
 from typing import Callable, Union
-from numpy import concatenate, isin, ndarray, repeat
+from numpy import concatenate, isin, ndarray, repeat, save as numpy_save
+from pickle import dump as pickle_dump, HIGHEST_PROTOCOL as pickle_protocol_high
 from logging import getLogger
+from json import dump as jspn_dump
 
-from src.utils.io import load_smile_data
+from src.utils.io import load_smile_data, NumpyEncoder
 
 logger = getLogger(__name__)
 
@@ -355,3 +357,35 @@ class SmileData(object):
             )
 
         self.unravelled: bool = True
+
+    def save(self, path: str, format: str = "dict"):
+        """Save the dataset to a file. The format can be either 'dict' or 'pickle'.
+
+        Parameters
+        ----------
+        path : str
+            path for saving
+        format : str, optional
+            format for the file to be saved with. Accepted are:
+            - 'dict', which follows the initial Smile dataset structure of a nested dictionary
+            - 'pickle', which saves the dataset as a SmileDataset sereliazed object
+            - 'json', which uses a json
+            by default 'dict'
+
+        Raises
+        ------
+        ValueError
+            if a wrong format is given, the method will fail
+        """
+        if format == "dict":
+            numpy_save(f"{path}.npy", self.data)
+        elif format == "pickle":
+            with open(f"{path}.pkl", "wb") as f:
+                pickle_dump(self, f, pickle_protocol_high)
+        elif format == "json":
+            with open(f"{path}.json", "w") as f:
+                jspn_dump(self.data, f, cls=NumpyEncoder)
+        else:
+            raise ValueError(
+                f'Format "{format}" not recognized. Accepted values are "dict", "pickle" and "json"'
+            )
