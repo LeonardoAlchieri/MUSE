@@ -1,5 +1,6 @@
 path_to_data: "./data.nosync/dataset_smile_challenge.npy"
 output_path: "./data.nosync"
-save_format: 'pickle'
+save_format: 'dict' # accepted_values: pickle, dict, json
+missing_values_inputation: "average" # accepted_values: average, previous_val, median, most_frequent, max_val
 debug_mode: False
 test: False
