@@ -94,14 +94,16 @@ def main(random_state: int):
     # TODO: do some optimization with regard the hyperparameter
     ml_models: list[ClassifierMixin] = [
         KNeighborsClassifier(n_jobs=n_jobs),
-        SVC(),
-        GaussianProcessClassifier(n_jobs=n_jobs),
+        # SVC(verbose=1,),
+        GaussianProcessClassifier(
+            n_jobs=n_jobs, copy_X_train=False
+        ),  # this is O(m^3) in memory!!!
         DecisionTreeClassifier(),
         AdaBoostClassifier(),
         GaussianNB(),
         QuadraticDiscriminantAnalysis(),
         RandomForestClassifier(n_jobs=n_jobs),
-        XGBClassifier(n_jobs=n_jobs),
+        XGBClassifier(verbose=1, n_jobs=n_jobs),
     ]
 
     # "average" # or "remove_user", "previous_val", "mediam", "most_frequent"
@@ -155,7 +157,7 @@ def main(random_state: int):
                     X=x,
                     y=y,
                     cv=cv,
-                    n_jobs=n_jobs,
+                    n_jobs=2,
                     scoring=MergeScorer(
                         scorer=accuracy_score,
                         merge_strategy=time_merge_strategy,
