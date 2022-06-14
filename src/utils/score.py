@@ -20,7 +20,7 @@ class MergeScorer:
         if strategy_name == "average" or strategy_name == "mean":
             return lambda x: approximate(mean(x, axis=1))
         elif strategy_name == "majority_voting":
-            lambda x: mode(x, axis=1)[0].reshape(
+            return lambda x: mode(x, axis=1)[0].reshape(
                 -1,
             )
         else:
