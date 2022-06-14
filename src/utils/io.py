@@ -1,4 +1,4 @@
-from numpy import load, ndarray
+from numpy import load
 from execution_time_wrapper import get_execution_time_log
 from typing import Any
 from yaml import safe_load as load_yaml
@@ -8,7 +8,6 @@ from os import makedirs, mkdir, getlogin
 from shutil import copyfile
 from glob import glob
 from logging import getLogger
-from json import JSONEncoder
 
 logger = getLogger(__name__)
 
@@ -121,31 +120,3 @@ def create_output_folder(path_to_config: str, task: str) -> str:
 
     copyfile(path_to_config, join_paths(current_session_path, "config.yaml"))
     return current_session_path
-
-
-class NumpyEncoder(JSONEncoder):
-    """Simple method to json-ify dictionary or other objects w/ numpy ndarrays
-    in them.
-
-    Credits to David Hempy on StackOverflow: https://stackoverflow.com/a/47626762
-    """
-
-    def default(self, obj: Any) -> JSONEncoder | list:
-        """Simple method to json-ify dictionary or other objects w/ numpy ndarrays
-        in them.
-
-        Credits to David Hempy on StackOverflow: https://stackoverflow.com/a/47626762
-
-        Parameters
-        ----------
-        obj : Any
-            object to save
-
-        Returns
-        -------
-        JSONEncoder
-            returns the default json encoder if no ndarray is present, otherwise the object converted to list
-        """
-        if isinstance(obj, ndarray):
-            return obj.tolist()
-        return JSONEncoder.default(self, obj)
