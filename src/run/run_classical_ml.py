@@ -60,6 +60,7 @@ def main(random_state: int):
     binary: bool = configs["binary"]
     unravelled: bool = configs["unravelled"]
     debug_mode: bool = configs["debug_mode"]
+    st_feat: bool = configs["st_feat"]
 
     if not debug_mode:
         current_session_path = create_output_folder(
@@ -70,12 +71,21 @@ def main(random_state: int):
 
     data = SmileData(path_to_data=path_to_data, test=False, debug_mode=debug_mode)
 
-    features: list[tuple[str, str]] = [
-        ("hand_crafted_features", "ECG_features"),
-        ("hand_crafted_features", "GSR_features"),
-        ("deep_features", "ECG_features_C"),
-        ("deep_features", "ECG_features_T"),
-    ]
+    if st_feat:
+        features: list[tuple[str, str]] = [
+            ("hand_crafted_features", "ECG_features"),
+            ("hand_crafted_features", "GSR_features"),
+            ("hand_crafted_features", "ST_features"),
+            # ("deep_features", "ECG_features_C"),
+            # ("deep_features", "ECG_features_T"),
+        ]
+    else:
+        features: list[tuple[str, str]] = [
+            ("hand_crafted_features", "ECG_features"),
+            ("hand_crafted_features", "GSR_features"),
+            # ("deep_features", "ECG_features_C"),
+            # ("deep_features", "ECG_features_T"),
+        ]
     # 2070, 60, M
     if not unravelled:
         join_types: list[str] = [
@@ -103,7 +113,7 @@ def main(random_state: int):
         GaussianNB(),
         QuadraticDiscriminantAnalysis(),
         RandomForestClassifier(n_jobs=n_jobs),
-        XGBClassifier(verbose=1, n_jobs=n_jobs),
+        XGBClassifier(n_jobs=n_jobs),
     ]
 
     # "average" # or "remove_user", "previous_val", "mediam", "most_frequent"
@@ -157,7 +167,7 @@ def main(random_state: int):
                     X=x,
                     y=y,
                     cv=cv,
-                    n_jobs=2,
+                    n_jobs=3,
                     scoring=MergeScorer(
                         scorer=accuracy_score,
                         merge_strategy=time_merge_strategy,

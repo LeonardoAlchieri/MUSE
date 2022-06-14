@@ -68,6 +68,23 @@ class SmileData(object):
                 else:
                     self.data[feature_type] = self.data[feature_type][:50]
 
+    def separate_skin_temperature(self) -> None:
+        """Method to separate the skin temperature from the deep features."""
+
+        gsr_data: ndarray = self.get_handcrafted_features(joined=False)["GSR_features"]
+        self.hand_crafted_features: list[str] = [
+            "ECG_features",
+            "GSR_features",
+            "ST_features",
+        ]
+
+        st_data: ndarray = gsr_data[:, :, -4:]
+        gsr_data: ndarray = gsr_data[:, :, :-4]
+        logger.info(f"ST feature shape: {st_data.shape}")
+        logger.info(f"GSR feature shape: {gsr_data.shape}")
+        self.set_handcrafted_feature(feature="GSR_features", data=gsr_data)
+        self.set_handcrafted_feature(feature="ST_features", data=st_data)
+
     def get_handcrafted_features(
         self, joined: bool = False, **kwargs
     ) -> dict[str, ndarray] | ndarray:
@@ -390,4 +407,33 @@ class SmileData(object):
         else:
             raise ValueError(
                 f'Format "{format}" not recognized. Accepted values are "dict", "pickle" and "json"'
+            )
+
+    def timecut(self, timestep_length: int = 60) -> None:
+        """This method allows to reduce the timestep "back", w/ respect to the stress label.
+
+        Parameters
+        ----------
+        timestep_length : int, optional
+            number of steps to be considered out of 60 (max), by default 60
+        """
+        if timestep_length == 60:
+            logger.warning("The timestep length is set to 60. Nothing to do.")
+            return None
+
+        hand_crafted_data: dict[str, ndarray] = self.get_handcrafted_features(
+            joined=False
+        )
+        deep_data: dict[str, ndarray] = self.get_deep_features(joined=False)
+
+        for feat in self.hand_crafted_features:
+            self.set_handcrafted_feature(
+                data=hand_crafted_data[feat][:, -timestep_length:, :],
+                feature=feat,
+            )
+
+        for feat in self.deep_features:
+            self.set_deep_feature(
+                data=deep_data[feat][:, -timestep_length:, :],
+                feature=feat,
             )

@@ -7,6 +7,8 @@ from warnings import warn
 from numpy.random import seed as set_seed
 from typing import Callable
 
+from joblib import Parallel, delayed
+
 path.append(".")
 from src.utils.io import load_config
 from src.data.smile import SmileData
@@ -32,12 +34,15 @@ def main(random_state: int):
     configs = load_config(path=path_to_config)
     logger.debug("Configs loaded")
 
+    timestep_length: int = configs["timestep_length"]
+    n_jobs: int = configs["n_jobs"]
     path_to_data: str = configs["path_to_data"]
     save_format: str = configs["save_format"]
     missing_values_inputation: str = configs["missing_values_inputation"]
+    output_path: str = configs["output_path"]
     debug_mode: bool = configs["debug_mode"]
     test: bool = configs["test"]
-    output_path: str = configs["output_path"]
+    make_st_feat: bool = configs["make_st_feat"]
 
     # "average" # or "remove_user", "previous_val", "mediam", "most_frequent"
     missing_methods_dict: dict[Callable] = dict(
@@ -49,28 +54,58 @@ def main(random_state: int):
         none=None,
         # remove_user=filling_remove_user
     )
-    features: list[tuple[str, str]] = [
-        ("hand_crafted_features", "ECG_features"),
-        ("hand_crafted_features", "GSR_features"),
-        ("deep_features", "ECG_features_C"),
-        ("deep_features", "ECG_features_T"),
-    ]
+    if not make_st_feat:
+        features: list[tuple[str, str]] = [
+            ("hand_crafted_features", "ECG_features"),
+            ("hand_crafted_features", "GSR_features"),
+            ("deep_features", "ECG_features_C"),
+            ("deep_features", "ECG_features_T"),
+        ]
+    else:
+        features: list[tuple[str, str]] = [
+            ("hand_crafted_features", "ECG_features"),
+            ("hand_crafted_features", "GSR_features"),
+            ("hand_crafted_features", "ST_features"),
+            ("deep_features", "ECG_features_C"),
+            ("deep_features", "ECG_features_T"),
+        ]
 
     data = SmileData(path_to_data=path_to_data, test=test, debug_mode=debug_mode)
-    for feature_tuple in features:
-        logger.info(f"Missing for {feature_tuple}")
-        data.fill_missing_values(
-            features=feature_tuple,
-            filling_method=missing_methods_dict[missing_values_inputation],
-        )
+    if make_st_feat:
+        data.separate_skin_temperature()
 
+    if n_jobs > 1:
+        # FIXME: an error w/ assignment destination is given at the moment
+        Parallel(n_jobs=n_jobs)(
+            delayed(data.fill_missing_values)(
+                features=feature_tuple,
+                filling_method=missing_methods_dict[missing_values_inputation],
+            )
+            for feature_tuple in features
+        )
+    else:
+        for feature_tuple in features:
+            logger.info(f"Missing for {feature_tuple}")
+            data.fill_missing_values(
+                features=feature_tuple,
+                filling_method=missing_methods_dict[missing_values_inputation],
+            )
+
+    data.timecut(timestep_length=timestep_length)
     data.unravel(inplace=True)
 
-    output_filename: str = (
-        "dataset_smile_challenge_unravelled_train"
-        if not test
-        else "dataset_smile_challenge_unravelled_test"
-    )
+    if not make_st_feat:
+        output_filename: str = (
+            f"dataset_smile_challenge_unravelled_train_cut{timestep_length}"
+            if not test
+            else f"dataset_smile_challenge_unravelled_test_cut{timestep_length}"
+        )
+    else:
+        output_filename: str = (
+            f"dataset_smile_challenge_unravelled_train_cut{timestep_length}_stadd"
+            if not test
+            else f"dataset_smile_challenge_unravelled_test_cut{timestep_length}_stadd"
+        )
     if save_format == "json":
         warn("Saving to json is slow.")
     data.save(path=join_paths(output_path, output_filename), format=save_format)
