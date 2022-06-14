@@ -1,8 +1,10 @@
-from typing import Callable
-from numpy import concatenate, isin, ndarray
+from typing import Callable, Union
+from numpy import concatenate, isin, ndarray, repeat, save as numpy_save
+from pickle import dump as pickle_dump, HIGHEST_PROTOCOL as pickle_protocol_high
 from logging import getLogger
+from json import dump as jspn_dump
 
-from src.utils.io import load_smile_data
+from src.utils.io import load_smile_data, NumpyEncoder
 
 logger = getLogger(__name__)
 
@@ -23,8 +25,15 @@ class SmileData(object):
 
     hand_crafted_features: list[str] = ["ECG_features", "GSR_features"]
     deep_features: list[str] = ["ECG_features_C", "ECG_features_T"]
+    unravelled: bool = False
 
-    def __init__(self, path_to_data: str, test: bool = False, debug_mode: bool = False):
+    def __init__(
+        self,
+        path_to_data: str,
+        test: bool = False,
+        debug_mode: bool = False,
+        unravelled: bool = False,
+    ):
         """Class used to load and get the different features of the Smile dataset. Indeed,
         the data, as provided by the authors (see https://compwell.rice.edu/workshops/embc2022/challenge),
         is structured as a nested dictionary.
@@ -41,7 +50,11 @@ class SmileData(object):
         """
 
         data = load_smile_data(path_to_data)
-        self.data = data["train"] if not test else data["test"]
+        if "train" in data.keys() or "test" in data.keys():
+            self.data = data["train"] if not test else data["test"]
+        else:
+            self.data = data
+        self.unravelled = unravelled
         if debug_mode:
             logger.warning(
                 "Debug mode activated, only a portion of the dataset will be loaded"
@@ -54,6 +67,23 @@ class SmileData(object):
                         ][:50]
                 else:
                     self.data[feature_type] = self.data[feature_type][:50]
+
+    def separate_skin_temperature(self) -> None:
+        """Method to separate the skin temperature from the deep features."""
+
+        gsr_data: ndarray = self.get_handcrafted_features(joined=False)["GSR_features"]
+        self.hand_crafted_features: list[str] = [
+            "ECG_features",
+            "GSR_features",
+            "ST_features",
+        ]
+
+        st_data: ndarray = gsr_data[:, :, -4:]
+        gsr_data: ndarray = gsr_data[:, :, :-4]
+        logger.info(f"ST feature shape: {st_data.shape}")
+        logger.info(f"GSR feature shape: {gsr_data.shape}")
+        self.set_handcrafted_feature(feature="GSR_features", data=gsr_data)
+        self.set_handcrafted_feature(feature="ST_features", data=st_data)
 
     def get_handcrafted_features(
         self, joined: bool = False, **kwargs
@@ -80,7 +110,11 @@ class SmileData(object):
 
         if joined:
             return concatenate(
-                [data["ECG_features"], data["GSR_features"]], axis=concat_axis
+                [
+                    data[self.hand_crafted_features[0]],
+                    data[self.hand_crafted_features[1]],
+                ],
+                axis=concat_axis,
             )
         else:
             return data
@@ -110,7 +144,8 @@ class SmileData(object):
 
         if joined:
             return concatenate(
-                [data["ECG_features_C"], data["ECG_features_T"]], axis=concat_axis
+                [data[self.deep_features[0]], data[self.deep_features[1]]],
+                axis=concat_axis,
             )
         else:
             return data
@@ -138,6 +173,16 @@ class SmileData(object):
             array to substitute the current data
         """
         self.data["deep_features"][feature] = data
+
+    def set_labels(self, labels: ndarray) -> None:
+        """Method to set the labels of the dataset.
+
+        Parameters
+        ----------
+        labels : ndarray
+            array to substitute the current data
+        """
+        self.data["labels"] = labels
 
     def get_labels(self) -> ndarray:
         """This method returns the labels of the dataset.
@@ -237,18 +282,17 @@ class SmileData(object):
         elif join_type == "concat_label_level":
             # TODO: implement where for each label, we have to spawn 60 more!
             # return data.reshape(-1, data.shape[-1]) if get_labels else tuple(data.reshape(-1, data.shape[-1]),
-            ...
-            raise NotImplementedError(
-                "Leo was lazy and has not implemented this join_type yet! 😴"
-            )
+            return data, self.get_labels()
         else:
             raise ValueError(
                 f'Join type "{join_type}" not recognized. Accepted values are "average", "concat_feature_level" and "concat_label_level"'
             )
 
     def fill_missing_values(
-        self, features: tuple[str, str] | str, filling_method: Callable
+        self, features: tuple[str, str] | str, filling_method: Callable | None
     ):
+        if filling_method is None:
+            return None
         feature_name, feature_type = self.check_features_input(features=features)
 
         if feature_type == "hand_crafted_features":
@@ -268,3 +312,128 @@ class SmileData(object):
             self.set_deep_feature(feature_name, data)
         else:
             raise ValueError(f'Feature type "{feature_type}" not found in the dataset')
+
+    def _get_time_duration(self):
+        """Method to get the time duration of the dataset.
+
+        Will fail the data has been unravelled.
+        """
+        if self.unravelled:
+            raise ValueError(
+                "The dataset has been unravelled. You can't get the time duration of the dataset."
+            )
+        hand_crafted_data: dict[str, ndarray] = self.get_handcrafted_features(
+            joined=False
+        )
+        deep_data: dict[str, ndarray] = self.get_deep_features(joined=False)
+        durations = list()
+        durations.extend(
+            [hand_crafted_data[feat].shape[1] for feat in self.hand_crafted_features]
+        )
+        durations.extend([deep_data[feat].shape[1] for feat in self.deep_features])
+        duration: list = list(set(durations))
+        if len(duration) > 1:
+            raise ValueError(
+                f"The dataset has different durations for handcrafted and deep features. "
+                f"Got {duration}."
+            )
+        else:
+            return duration[0]
+
+    def unravel(self, inplace: bool = True) -> Union[None, "SmileData"]:
+        """Method to unravel the dataset.
+
+        The method unravels the dataset by concatenating all the features in the dataset.
+
+        Parameters
+        ----------
+        inplace : bool, optional
+            if True, the method will modify the smile data inplace. The default is True.
+
+        Returns
+        -------
+        None | 'SmileData'
+            if inplace is True, the method returns None. Otherwise, it returns a new SmileData object.
+        """
+
+        self.set_labels(repeat(self.get_labels(), self._get_time_duration()))
+
+        hand_crafted_data: dict[str, ndarray] = self.get_handcrafted_features(
+            joined=False
+        )
+        deep_data: dict[str, ndarray] = self.get_deep_features(joined=False)
+        for feat in self.hand_crafted_features:
+            self.set_handcrafted_feature(
+                data=hand_crafted_data[feat].reshape(
+                    -1, hand_crafted_data[feat].shape[-1]
+                ),
+                feature=feat,
+            )
+        for feat in self.deep_features:
+            self.set_deep_feature(
+                data=deep_data[feat].reshape(-1, deep_data[feat].shape[-1]),
+                feature=feat,
+            )
+
+        self.unravelled: bool = True
+
+    def save(self, path: str, format: str = "dict"):
+        """Save the dataset to a file. The format can be either 'dict' or 'pickle'.
+
+        Parameters
+        ----------
+        path : str
+            path for saving
+        format : str, optional
+            format for the file to be saved with. Accepted are:
+            - 'dict', which follows the initial Smile dataset structure of a nested dictionary
+            - 'pickle', which saves the dataset as a SmileDataset sereliazed object
+            - 'json', which uses a json
+            by default 'dict'
+
+        Raises
+        ------
+        ValueError
+            if a wrong format is given, the method will fail
+        """
+        if format == "dict":
+            numpy_save(f"{path}.npy", self.data)
+        elif format == "pickle":
+            with open(f"{path}.pkl", "wb") as f:
+                pickle_dump(self, f, pickle_protocol_high)
+        elif format == "json":
+            with open(f"{path}.json", "w") as f:
+                jspn_dump(self.data, f, cls=NumpyEncoder)
+        else:
+            raise ValueError(
+                f'Format "{format}" not recognized. Accepted values are "dict", "pickle" and "json"'
+            )
+
+    def timecut(self, timestep_length: int = 60) -> None:
+        """This method allows to reduce the timestep "back", w/ respect to the stress label.
+
+        Parameters
+        ----------
+        timestep_length : int, optional
+            number of steps to be considered out of 60 (max), by default 60
+        """
+        if timestep_length == 60:
+            logger.warning("The timestep length is set to 60. Nothing to do.")
+            return None
+
+        hand_crafted_data: dict[str, ndarray] = self.get_handcrafted_features(
+            joined=False
+        )
+        deep_data: dict[str, ndarray] = self.get_deep_features(joined=False)
+
+        for feat in self.hand_crafted_features:
+            self.set_handcrafted_feature(
+                data=hand_crafted_data[feat][:, -timestep_length:, :],
+                feature=feat,
+            )
+
+        for feat in self.deep_features:
+            self.set_deep_feature(
+                data=deep_data[feat][:, -timestep_length:, :],
+                feature=feat,
+            )
