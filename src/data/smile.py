@@ -85,8 +85,24 @@ class SmileData(object):
         self.set_handcrafted_feature(feature="GSR_features", data=gsr_data)
         self.set_handcrafted_feature(feature="ST_features", data=st_data)
 
+    @staticmethod
+    def remove_masking(data: dict[str, ndarray]) -> dict[str, ndarray]:
+        """Method to remove the masking arrays from the dataset.
+
+        Parameters
+        ----------
+        data : dict[str, ndarray]
+        """
+        for key in data.keys():
+            if key.endswith("_masking"):
+                data.pop(key)
+        return data
+
     def get_handcrafted_features(
-        self, joined: bool = False, **kwargs
+        self,
+        joined: bool = False,
+        masking: bool = True,
+        **kwargs,
     ) -> dict[str, ndarray] | ndarray:
         """Get the hand crafted features of the dataset, either as a dicitonary or as
         a single array (obtained from the contatenation of the 2 different sets of features)
@@ -95,6 +111,8 @@ class SmileData(object):
         ----------
         joined : bool, optional
             if True, the return will be a concatenated dictionary, by default False
+        masking : bool, optional
+            if True, the masking arrays will be given, otherwise not, by default True
 
         Returns
         -------
@@ -102,6 +120,8 @@ class SmileData(object):
             the method returns the required data, either as a dictionary or as a single array
         """
         data: dict = self.data["hand_crafted_features"]
+        if not masking:
+            data = self.remove_masking(data)
 
         if "concat_axis" in kwargs:
             concat_axis: int = kwargs["concat_axis"]
