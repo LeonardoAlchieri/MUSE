@@ -1,5 +1,5 @@
 from typing import Callable, Union
-from numpy import concatenate, isin, ndarray, repeat, save as numpy_save
+from numpy import concatenate, isin, ndarray, repeat, save as numpy_save, swapaxes
 from pickle import dump as pickle_dump, HIGHEST_PROTOCOL as pickle_protocol_high
 from logging import getLogger
 from json import dump as jspn_dump
@@ -130,6 +130,7 @@ class SmileData(object):
                 [
                     data[self.hand_crafted_features[0]],
                     data[self.hand_crafted_features[1]],
+                    data[self.hand_crafted_features[2]],
                 ],
                 axis=concat_axis,
             )
@@ -291,9 +292,9 @@ class SmileData(object):
             )
         elif join_type == "concat_feature_level":
             return (
-                data.reshape(data.shape[0], -1)
+                swapaxes(data, 1, 2).reshape(data.shape[0], -1)
                 if get_labels
-                else data.reshape(data.shape[0], -1),
+                else swapaxes(data, 1, 2).reshape(data.shape[0], -1),
                 self.get_labels(),
             )
         elif join_type == "concat_label_level":
