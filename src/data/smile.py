@@ -93,10 +93,7 @@ class SmileData(object):
         ----------
         data : dict[str, ndarray]
         """
-        for key in data.keys():
-            if key.endswith("_masking"):
-                data.pop(key)
-        return data
+        return {key: val for key, val in data.items() if not key.endswith("_masking")}
 
     def get_handcrafted_features(
         self,
