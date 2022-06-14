@@ -19,9 +19,13 @@ class MergeScorer:
     def _get_merge_strategy(strategy_name: str) -> Callable:
         if strategy_name == "average" or strategy_name == "mean":
             return lambda x: approximate(mean(x, axis=1))
-        elif strategy_name == "majority_viting":
+        elif strategy_name == "majority_voting":
             lambda x: mode(x, axis=1)[0].reshape(
                 -1,
+            )
+        else:
+            raise ValueError(
+                f"Unknown merge strategy {strategy_name}. Accepted are 'average' and 'majority_voting'"
             )
 
     @staticmethod
