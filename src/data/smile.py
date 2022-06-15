@@ -1,5 +1,13 @@
 from typing import Callable, Union
-from numpy import concatenate, isin, ndarray, repeat, save as numpy_save, swapaxes
+from numpy import (
+    concatenate,
+    isin,
+    ndarray,
+    repeat,
+    save as numpy_save,
+    swapaxes,
+    delete,
+)
 from pickle import dump as pickle_dump, HIGHEST_PROTOCOL as pickle_protocol_high
 from logging import getLogger
 from json import dump as jspn_dump
@@ -455,3 +463,43 @@ class SmileData(object):
                 data=deep_data[feat][:, -timestep_length:, :],
                 feature=feat,
             )
+
+    def remove_flatlines(self) -> None:
+        """The dataset contains, for some labels and some features,
+        some timeseries which are completely 0, which are referred to as
+        "flatlines".
+
+        From descriptive analysis, the data without any flatlines is about
+        1500 samples, out of 2070, or about 70%.
+
+        This method removes the flatlines from the dataset, in order to
+        have data which is only "clean".
+        """
+        hand_crafted_data: dict[str, ndarray] = self.get_handcrafted_features(
+            joined=True
+        )
+
+        def get_non_flatline_indexes(x: ndarray) -> list[int]:
+            return [idx for idx, row in enumerate(x) for feat in row if sum(feat) == 0]
+
+        hand_crafted_data = swapaxes(hand_crafted_data, 1, 2)
+        idxs_to_remove = get_non_flatline_indexes(x=hand_crafted_data)
+        hand_crafted_data_clean: ndarray = delete(
+            hand_crafted_data, idxs_to_remove, axis=0
+        )
+        # swap back the axes, in order to have (N, 60, 20)
+        hand_crafted_data_clean = swapaxes(hand_crafted_data_clean, 1, 2)
+        hand_crafted_data_clean: dict[ndarray] = (
+            {
+                self.hand_crafted_features[0]: hand_crafted_data_clean[:, :, :8],
+                self.hand_crafted_features[1]: hand_crafted_data_clean[:, :, 8:16],
+                self.hand_crafted_features[2]: hand_crafted_data_clean[:, :, 16:],
+            }
+            if len(self.hand_crafted_features) == 3
+            else {
+                self.hand_crafted_features[0]: hand_crafted_data_clean[:, :, :8],
+                self.hand_crafted_features[1]: hand_crafted_data_clean[:, :, 8:],
+            }
+        )
+        for feature_name, feature_data in hand_crafted_data_clean.items():
+            self.set_handcrafted_feature(data=feature_data, feature=feature_name)
