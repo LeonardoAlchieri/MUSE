@@ -1,3 +1,4 @@
+from warnings import warn
 from numpy import load, ndarray
 from execution_time_wrapper import get_execution_time_log
 from typing import Any
@@ -9,6 +10,7 @@ from shutil import copyfile
 from glob import glob
 from logging import getLogger
 from json import JSONEncoder
+from shutil import rmtree
 
 logger = getLogger(__name__)
 
@@ -66,7 +68,9 @@ def check_create_folder(path: str) -> None:
 
 
 @get_execution_time_log
-def create_output_folder(path_to_config: str, task: str) -> str:
+def create_output_folder(
+    path_to_config: str, task: str, cp_all_config: bool = False
+) -> str:
     """This method can be used to create the output folder for the current task.
 
     Parameters
@@ -76,6 +80,9 @@ def create_output_folder(path_to_config: str, task: str) -> str:
         the rest of the information
     task : str
         task name
+    cp_all_config : bool
+        if True, all configuration files will be copied to the output folder,
+        by default False
 
     Returns
     -------
@@ -119,8 +126,55 @@ def create_output_folder(path_to_config: str, task: str) -> str:
     else:
         mkdir(current_session_path)
 
-    copyfile(path_to_config, join_paths(current_session_path, "config.yaml"))
+    if not cp_all_config:
+        copyfile(path_to_config, join_paths(current_session_path, "config.yaml"))
+    else:
+        current_path: str = join_paths(*path_to_config.split("/")[:-1])
+        logger.info(f"Copying all configuration files in {current_session_path}")
+        for file in glob(join_paths(current_path, "config*")):
+            config_filename: str = file.split("/")[-1]
+            copyfile(file, join_paths(current_session_path, config_filename))
     return current_session_path
+
+
+@get_execution_time_log
+def delete_output_folder_exception(task: str) -> bool:
+    namespace: str = getlogin()
+    base_output_path: str = "./results.nosync/train/"
+    given_output_path: str = join_paths(base_output_path, task)
+    logger.info(f"General output path: {given_output_path}")
+    check_create_folder(path=given_output_path)
+
+    current_sessions_ids: List[int] = [
+        int("".join([char for char in session.split("/")[-1] if char.isdigit()]))
+        for session in glob(join_paths(given_output_path, f"{namespace}session*"))
+    ]
+    if len(current_sessions_ids) == 0:
+        current_session: int = 0
+    else:
+        last_session: int = max(current_sessions_ids)
+        logger.debug(f"Last session: {last_session}")
+        current_session: int = last_session
+
+    current_session_path: str = join_paths(
+        given_output_path, f"{namespace}session{current_session}"
+    )
+
+    logger.debug(f"Current session to be deleted: {current_session_path}")
+    csv_files_in_current_session: list[str] = glob(
+        join_paths(current_session_path, "*.csv")
+    )
+    if len(csv_files_in_current_session) > 0:
+        warn(
+            f"Found {len(csv_files_in_current_session)} csv files in {current_session_path}. Stopping delete"
+        )
+        logger.warning(
+            f"Found {len(csv_files_in_current_session)} csv files in {current_session_path}. Stopping delete"
+        )
+        return False
+    else:
+        rmtree(current_session_path)
+        return True
 
 
 class NumpyEncoder(JSONEncoder):

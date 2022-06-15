@@ -8,3 +8,4 @@ binary: True
 debug_mode: False
 unravelled: True
 st_feat: True
+cp_all_config: True

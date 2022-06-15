@@ -3,6 +3,7 @@ from sys import path
 from logging import getLogger, basicConfig, DEBUG, INFO, WARNING
 from typing import Callable
 from os.path import basename, join as join_paths
+from warnings import warn
 from pandas import DataFrame
 from numpy.random import seed as set_seed
 from numpy import ndarray
@@ -24,7 +25,11 @@ from xgboost import XGBClassifier
 
 path.append(".")
 from src.data.smile import SmileData
-from src.utils.io import load_config, create_output_folder
+from src.utils.io import (
+    load_config,
+    create_output_folder,
+    delete_output_folder_exception,
+)
 from src.utils import make_binary
 from src.utils.inputation import (
     filling_mean,
@@ -61,10 +66,11 @@ def main(random_state: int):
     unravelled: bool = configs["unravelled"]
     debug_mode: bool = configs["debug_mode"]
     st_feat: bool = configs["st_feat"]
+    cp_all_config: bool = configs["cp_all_config"]
 
     if not debug_mode:
         current_session_path = create_output_folder(
-            path_to_config=path_to_config, task=_filename
+            path_to_config=path_to_config, task=_filename, cp_all_config=cp_all_config
         )
     else:
         print("DEBUG MODE ACTIVATED!")
@@ -191,4 +197,16 @@ def main(random_state: int):
 
 if __name__ == "__main__":
     random_state: int = 42
-    main(random_state=random_state)
+    try:
+        main(random_state=random_state)
+    except:
+        logger.warning("Process terminated early. Removing save directory.")
+        print("!!!!! Process terminated early. Removing save directory. !!!!!")
+        res = delete_output_folder_exception(task=_filename)
+        if res:
+            print("Dir removed successfully")
+            logger.info("Dir removed successfully")
+        else:
+            print("Dir not removed")
+            logger.info("Dir not removed")
+        raise
