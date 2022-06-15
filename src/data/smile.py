@@ -478,6 +478,8 @@ class SmileData(object):
         hand_crafted_data: dict[str, ndarray] = self.get_handcrafted_features(
             joined=True
         )
+        deep_data: dict[str, ndarray] = self.get_deep_features(joined=True)
+        labels: ndarray = self.get_labels()
 
         def get_non_flatline_indexes(x: ndarray) -> list[int]:
             return [idx for idx, row in enumerate(x) for feat in row if sum(feat) == 0]
@@ -503,3 +505,16 @@ class SmileData(object):
         )
         for feature_name, feature_data in hand_crafted_data_clean.items():
             self.set_handcrafted_feature(data=feature_data, feature=feature_name)
+
+        deep_data = swapaxes(deep_data, 1, 2)
+        deep_data_clean: ndarray = delete(deep_data, idxs_to_remove, axis=0)
+        deep_data_clean = swapaxes(deep_data_clean, 1, 2)
+        deep_data_clean: dict[ndarray] = {
+            self.deep_features[0]: deep_data_clean[:, :, :256],
+            self.deep_features[1]: deep_data_clean[:, :, 256:],
+        }
+        for feature_name, feature_data in deep_data_clean.items():
+            self.set_deep_feature(data=feature_data, feature=feature_name)
+
+        labels_clean: ndarray = delete(labels, idxs_to_remove, axis=0)
+        self.set_labels(labels_clean)

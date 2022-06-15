@@ -162,8 +162,13 @@ def main(random_state: int):
                 if unravelled:
                     # if the data is unravelled, we need a custom way to give
                     # folds to teh cross_val_score method
+                    n_data: int = x.shape[0]
+                    if n_data != y.shape[0]:
+                        raise ValueError(
+                            f"The number of data points in x and y are not the same: {n_data} != {y.shape[0]}"
+                        )
                     cv: list[tuple[ndarray, ndarray]] = make_unravelled_folds(
-                        t=time_length, n_folds=cv_num, n_data=2070
+                        t=time_length, n_folds=cv_num, n_data=n_data // time_length
                     )
                 else:
                     cv: int = cv_num
