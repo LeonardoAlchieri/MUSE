@@ -63,6 +63,12 @@ class SmileData(object):
         else:
             self.data = data
         self.unravelled = unravelled
+        if self.unravelled:
+            self.hand_crafted_features: list[str] = [
+                "ECG_features",
+                "GSR_features",
+                "ST_features",
+            ]
         if debug_mode:
             logger.warning(
                 "Debug mode activated, only a portion of the dataset will be loaded"

@@ -7,4 +7,4 @@ missing_values_inputation: "average" # accepted_values: average, previous_val, m
 debug_mode: False
 test: False
 make_st_feat: True
-remove_flatlines: True
+remove_flatlines: False
