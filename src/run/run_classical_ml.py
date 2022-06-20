@@ -2,10 +2,8 @@ from gc import collect as picking_trash_up
 from logging import DEBUG, INFO, WARNING, basicConfig, getLogger
 from os.path import basename
 from os.path import join as join_paths
-from re import I
 from sys import path
 from typing import Callable
-from warnings import warn
 
 from numpy import ndarray
 from numpy.random import seed as set_seed
@@ -14,15 +12,16 @@ from sklearn.base import ClassifierMixin
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import Matern
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import cross_val_score
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from tqdm import tqdm
 from xgboost import XGBClassifier
 
+path.append(".")
 from src.data.smile import SmileData
 from src.utils import make_binary
 from src.utils.cv import make_unravelled_folds
@@ -39,8 +38,6 @@ from src.utils.io import (
     load_config,
 )
 from src.utils.score import MergeScorer
-
-path.append(".")
 
 
 _filename: str = basename(__file__).split(".")[0][4:]
@@ -63,6 +60,7 @@ def main(random_state: int):
     path_to_data: str = configs["path_to_data"]
     missing_values_inputation: str = configs["missing_values_inputation"]
     time_merge_strategy: str = configs["time_merge_strategy"]
+    gaussian_process_kernel: str = configs["gaussian_process_kernel"]
     binary: bool = configs["binary"]
     unravelled: bool = configs["unravelled"]
     debug_mode: bool = configs["debug_mode"]
@@ -118,7 +116,11 @@ def main(random_state: int):
         KNeighborsClassifier(n_jobs=n_jobs),
         # SVC(verbose=1,),
         GaussianProcessClassifier(
-            n_jobs=n_jobs, copy_X_train=False
+            n_jobs=n_jobs,
+            copy_X_train=False,
+            kernel=Matern(length_scale=1.0, nu=0.1)
+            if gaussian_process_kernel == "matern"
+            else None,
         ),  # this is O(m^3) in memory!!!
         DecisionTreeClassifier(),
         AdaBoostClassifier(),

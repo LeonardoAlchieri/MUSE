@@ -4,6 +4,7 @@ time_length: 10
 path_to_data: "./data.nosync/dataset_smile_challenge_unravelled_train_cut10_stadd.npy"
 missing_values_inputation: "none" # accepted_values: average, previous_val, median, most_frequent, max_val
 time_merge_strategy: 'majority_voting' # accepted value: mean, majority_voting
+gaussian_process_kernel: 'matern' # correctly accepted: matern or empty string
 binary: True
 debug_mode: False
 unravelled: True
@@ -13,6 +14,6 @@ feature_selection: True
 feature_selection_configs:
   criterion: 'mutual information' # available: correlation, mutual information, chi-square, f_classif
   method: 'percentage' # avaible are 'percentage', 'fixed number' and 'p value'
-  method_attribute: 30 # e.g. percentage: 30, fixed number: 3, p value: 0.05
+  method_attribute: 70 # e.g. percentage: 30, fixed number: 3, p value: 0.05
   joined: False
   deep_features: False
