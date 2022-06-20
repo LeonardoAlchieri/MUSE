@@ -41,6 +41,7 @@ class SmileData(object):
         test: bool = False,
         debug_mode: bool = False,
         unravelled: bool = False,
+        st_feat: bool = True,
     ):
         """Class used to load and get the different features of the Smile dataset. Indeed,
         the data, as provided by the authors (see https://compwell.rice.edu/workshops/embc2022/challenge),
@@ -63,7 +64,7 @@ class SmileData(object):
         else:
             self.data = data
         self.unravelled = unravelled
-        if self.unravelled:
+        if st_feat:
             self.hand_crafted_features: list[str] = [
                 "ECG_features",
                 "GSR_features",
@@ -137,7 +138,7 @@ class SmileData(object):
         if "concat_axis" in kwargs:
             concat_axis: int = kwargs["concat_axis"]
         else:
-            concat_axis: int = 2
+            concat_axis: int = 2 if not self.unravelled else 1
 
         if joined:
             return concatenate(
