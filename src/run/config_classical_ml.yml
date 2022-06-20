@@ -9,3 +9,10 @@ debug_mode: False
 unravelled: True
 st_feat: True
 cp_all_config: True
+feature_selection: True
+feature_selection_configs:
+  criterion: 'mutual information' # available: correlation, mutual information, chi-square, f_classif
+  method: 'percentage' # avaible are 'percentage', 'fixed number' and 'p value'
+  method_attribute: 30 # e.g. percentage: 30, fixed number: 3, p value: 0.05
+  joined: False
+  deep_features: False

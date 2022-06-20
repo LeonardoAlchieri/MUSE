@@ -1,5 +1,7 @@
 from typing import Callable
-from numpy import ndarray, mean, round as approximate, array
+
+from numpy import array, mean, ndarray
+from numpy import round as approximate
 from scipy.stats import mode
 from sklearn.base import ClassifierMixin
 

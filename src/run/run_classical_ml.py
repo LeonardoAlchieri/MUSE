@@ -1,45 +1,46 @@
+from gc import collect as picking_trash_up
+from logging import DEBUG, INFO, WARNING, basicConfig, getLogger
+from os.path import basename
+from os.path import join as join_paths
 from re import I
 from sys import path
-from logging import getLogger, basicConfig, DEBUG, INFO, WARNING
 from typing import Callable
-from os.path import basename, join as join_paths
 from warnings import warn
-from pandas import DataFrame
-from numpy.random import seed as set_seed
-from numpy import ndarray
-from gc import collect as picking_trash_up
-from tqdm import tqdm
 
+from numpy import ndarray
+from numpy.random import seed as set_seed
+from pandas import DataFrame
+from sklearn.base import ClassifierMixin
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.metrics import accuracy_score
 from sklearn.model_selection import cross_val_score
+from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
-from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
-from sklearn.base import ClassifierMixin
-from sklearn.metrics import accuracy_score
-
+from tqdm import tqdm
 from xgboost import XGBClassifier
 
-path.append(".")
 from src.data.smile import SmileData
-from src.utils.io import (
-    load_config,
-    create_output_folder,
-    delete_output_folder_exception,
-)
 from src.utils import make_binary
+from src.utils.cv import make_unravelled_folds
 from src.utils.inputation import (
+    filling_max,
     filling_mean,
-    filling_prev,
     filling_median,
     filling_mode,
-    filling_max,
+    filling_prev,
 )
-from src.utils.cv import make_unravelled_folds
+from src.utils.io import (
+    create_output_folder,
+    delete_output_folder_exception,
+    load_config,
+)
 from src.utils.score import MergeScorer
+
+path.append(".")
 
 
 _filename: str = basename(__file__).split(".")[0][4:]
@@ -67,6 +68,8 @@ def main(random_state: int):
     debug_mode: bool = configs["debug_mode"]
     st_feat: bool = configs["st_feat"]
     cp_all_config: bool = configs["cp_all_config"]
+    feature_selection: bool = configs["feature_selection"]
+    feature_selection_configs: dict = configs["feature_selection_configs"]
 
     if not debug_mode:
         current_session_path = create_output_folder(
@@ -76,6 +79,9 @@ def main(random_state: int):
         print("DEBUG MODE ACTIVATED!")
 
     data = SmileData(path_to_data=path_to_data, test=False, debug_mode=debug_mode)
+
+    if feature_selection:
+        data.feature_selection(**feature_selection_configs)
 
     if st_feat:
         features: list[tuple[str, str]] = [

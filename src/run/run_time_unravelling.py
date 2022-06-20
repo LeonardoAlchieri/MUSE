@@ -1,24 +1,26 @@
 # In this script, we load the data, of shape (2070, `TIME`, `N_FEATURES`)
 # and change it to shape (2070*`TIME`, `N_FEATURES`).
+from logging import INFO, basicConfig, getLogger
+from os.path import basename
+from os.path import join as join_paths
 from sys import path
-from logging import basicConfig, getLogger, INFO
-from os.path import basename, join as join_paths
-from warnings import warn
-from numpy.random import seed as set_seed
 from typing import Callable
+from warnings import warn
 
 from joblib import Parallel, delayed
+from numpy.random import seed as set_seed
 
-path.append(".")
-from src.utils.io import load_config
 from src.data.smile import SmileData
 from src.utils.inputation import (
+    filling_max,
     filling_mean,
-    filling_prev,
     filling_median,
     filling_mode,
-    filling_max,
+    filling_prev,
 )
+from src.utils.io import load_config
+
+path.append(".")
 
 
 _filename: str = basename(__file__).split(".")[0][4:]

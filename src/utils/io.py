@@ -1,16 +1,17 @@
-from warnings import warn
-from numpy import load, ndarray
-from execution_time_wrapper import get_execution_time_log
-from typing import Any
-from yaml import safe_load as load_yaml
-from typing import Dict, Any, List
-from os.path import join as join_paths, isdir, isfile
-from os import makedirs, mkdir, getlogin
-from shutil import copyfile
 from glob import glob
-from logging import getLogger
 from json import JSONEncoder
-from shutil import rmtree
+from logging import getLogger
+from os import getlogin, makedirs, mkdir
+from os.path import isdir, isfile
+from os.path import join as join_paths
+from shutil import copyfile, rmtree
+from typing import Any, Dict, List
+from warnings import warn
+
+from execution_time_wrapper import get_execution_time_log
+from numpy import load, ndarray
+
+from yaml import safe_load as load_yaml
 
 logger = getLogger(__name__)
 
