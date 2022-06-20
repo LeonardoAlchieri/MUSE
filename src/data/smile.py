@@ -1,5 +1,13 @@
 from typing import Callable, Union
-from numpy import concatenate, isin, ndarray, repeat, save as numpy_save
+from numpy import (
+    concatenate,
+    isin,
+    ndarray,
+    repeat,
+    save as numpy_save,
+    swapaxes,
+    delete,
+)
 from pickle import dump as pickle_dump, HIGHEST_PROTOCOL as pickle_protocol_high
 from logging import getLogger
 from json import dump as jspn_dump
@@ -33,6 +41,7 @@ class SmileData(object):
         test: bool = False,
         debug_mode: bool = False,
         unravelled: bool = False,
+        st_feat: bool = True,
     ):
         """Class used to load and get the different features of the Smile dataset. Indeed,
         the data, as provided by the authors (see https://compwell.rice.edu/workshops/embc2022/challenge),
@@ -55,6 +64,12 @@ class SmileData(object):
         else:
             self.data = data
         self.unravelled = unravelled
+        if st_feat:
+            self.hand_crafted_features: list[str] = [
+                "ECG_features",
+                "GSR_features",
+                "ST_features",
+            ]
         if debug_mode:
             logger.warning(
                 "Debug mode activated, only a portion of the dataset will be loaded"
@@ -85,8 +100,21 @@ class SmileData(object):
         self.set_handcrafted_feature(feature="GSR_features", data=gsr_data)
         self.set_handcrafted_feature(feature="ST_features", data=st_data)
 
+    @staticmethod
+    def remove_masking(data: dict[str, ndarray]) -> dict[str, ndarray]:
+        """Method to remove the masking arrays from the dataset.
+
+        Parameters
+        ----------
+        data : dict[str, ndarray]
+        """
+        return {key: val for key, val in data.items() if not key.endswith("_masking")}
+
     def get_handcrafted_features(
-        self, joined: bool = False, **kwargs
+        self,
+        joined: bool = False,
+        masking: bool = True,
+        **kwargs,
     ) -> dict[str, ndarray] | ndarray:
         """Get the hand crafted features of the dataset, either as a dicitonary or as
         a single array (obtained from the contatenation of the 2 different sets of features)
@@ -95,6 +123,8 @@ class SmileData(object):
         ----------
         joined : bool, optional
             if True, the return will be a concatenated dictionary, by default False
+        masking : bool, optional
+            if True, the masking arrays will be given, otherwise not, by default True
 
         Returns
         -------
@@ -102,17 +132,20 @@ class SmileData(object):
             the method returns the required data, either as a dictionary or as a single array
         """
         data: dict = self.data["hand_crafted_features"]
+        if not masking:
+            data = self.remove_masking(data)
 
         if "concat_axis" in kwargs:
             concat_axis: int = kwargs["concat_axis"]
         else:
-            concat_axis: int = 2
+            concat_axis: int = 2 if not self.unravelled else 1
 
         if joined:
             return concatenate(
                 [
                     data[self.hand_crafted_features[0]],
                     data[self.hand_crafted_features[1]],
+                    data[self.hand_crafted_features[2]],
                 ],
                 axis=concat_axis,
             )
@@ -274,9 +307,9 @@ class SmileData(object):
             )
         elif join_type == "concat_feature_level":
             return (
-                data.reshape(data.shape[0], -1)
+                swapaxes(data, 1, 2).reshape(data.shape[0], -1)
                 if get_labels
-                else data.reshape(data.shape[0], -1),
+                else swapaxes(data, 1, 2).reshape(data.shape[0], -1),
                 self.get_labels(),
             )
         elif join_type == "concat_label_level":
@@ -437,3 +470,58 @@ class SmileData(object):
                 data=deep_data[feat][:, -timestep_length:, :],
                 feature=feat,
             )
+
+    def remove_flatlines(self) -> None:
+        """The dataset contains, for some labels and some features,
+        some timeseries which are completely 0, which are referred to as
+        "flatlines".
+
+        From descriptive analysis, the data without any flatlines is about
+        1500 samples, out of 2070, or about 70%.
+
+        This method removes the flatlines from the dataset, in order to
+        have data which is only "clean".
+        """
+        hand_crafted_data: dict[str, ndarray] = self.get_handcrafted_features(
+            joined=True
+        )
+        deep_data: dict[str, ndarray] = self.get_deep_features(joined=True)
+        labels: ndarray = self.get_labels()
+
+        def get_non_flatline_indexes(x: ndarray) -> list[int]:
+            return [idx for idx, row in enumerate(x) for feat in row if sum(feat) == 0]
+
+        hand_crafted_data = swapaxes(hand_crafted_data, 1, 2)
+        idxs_to_remove = get_non_flatline_indexes(x=hand_crafted_data)
+        hand_crafted_data_clean: ndarray = delete(
+            hand_crafted_data, idxs_to_remove, axis=0
+        )
+        # swap back the axes, in order to have (N, 60, 20)
+        hand_crafted_data_clean = swapaxes(hand_crafted_data_clean, 1, 2)
+        hand_crafted_data_clean: dict[ndarray] = (
+            {
+                self.hand_crafted_features[0]: hand_crafted_data_clean[:, :, :8],
+                self.hand_crafted_features[1]: hand_crafted_data_clean[:, :, 8:16],
+                self.hand_crafted_features[2]: hand_crafted_data_clean[:, :, 16:],
+            }
+            if len(self.hand_crafted_features) == 3
+            else {
+                self.hand_crafted_features[0]: hand_crafted_data_clean[:, :, :8],
+                self.hand_crafted_features[1]: hand_crafted_data_clean[:, :, 8:],
+            }
+        )
+        for feature_name, feature_data in hand_crafted_data_clean.items():
+            self.set_handcrafted_feature(data=feature_data, feature=feature_name)
+
+        deep_data = swapaxes(deep_data, 1, 2)
+        deep_data_clean: ndarray = delete(deep_data, idxs_to_remove, axis=0)
+        deep_data_clean = swapaxes(deep_data_clean, 1, 2)
+        deep_data_clean: dict[ndarray] = {
+            self.deep_features[0]: deep_data_clean[:, :, :256],
+            self.deep_features[1]: deep_data_clean[:, :, 256:],
+        }
+        for feature_name, feature_data in deep_data_clean.items():
+            self.set_deep_feature(data=feature_data, feature=feature_name)
+
+        labels_clean: ndarray = delete(labels, idxs_to_remove, axis=0)
+        self.set_labels(labels_clean)

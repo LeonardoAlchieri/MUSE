@@ -43,6 +43,7 @@ def main(random_state: int):
     debug_mode: bool = configs["debug_mode"]
     test: bool = configs["test"]
     make_st_feat: bool = configs["make_st_feat"]
+    remove_flatlines: bool = configs["remove_flatlines"]
 
     # "average" # or "remove_user", "previous_val", "mediam", "most_frequent"
     missing_methods_dict: dict[Callable] = dict(
@@ -90,7 +91,8 @@ def main(random_state: int):
                 features=feature_tuple,
                 filling_method=missing_methods_dict[missing_values_inputation],
             )
-
+    if remove_flatlines:
+        data.remove_flatlines()
     data.timecut(timestep_length=timestep_length)
     data.unravel(inplace=True)
 
