@@ -1,5 +1,6 @@
-from numpy import ndarray, concatenate, arange
 from warnings import warn
+
+from numpy import arange, concatenate, ndarray
 
 
 def make_unravelled_folds(

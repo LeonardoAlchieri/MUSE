@@ -1,18 +1,22 @@
-from typing import Callable, Union
-from numpy import (
-    concatenate,
-    isin,
-    ndarray,
-    repeat,
-    save as numpy_save,
-    swapaxes,
-    delete,
-)
-from pickle import dump as pickle_dump, HIGHEST_PROTOCOL as pickle_protocol_high
-from logging import getLogger
 from json import dump as jspn_dump
+from logging import getLogger
+from pickle import HIGHEST_PROTOCOL as pickle_protocol_high
+from pickle import dump as pickle_dump
+from typing import Callable, Union
 
-from src.utils.io import load_smile_data, NumpyEncoder
+from numpy import concatenate, delete, ndarray, repeat
+from numpy import save as numpy_save
+from numpy import swapaxes
+from scipy.stats import pearsonr
+from sklearn.feature_selection import chi2, f_classif, mutual_info_classif
+from sklearn.feature_selection._univariate_selection import (
+    SelectFwe,
+    SelectKBest,
+    SelectPercentile,
+    _BaseFilter,
+)
+
+from src.utils.io import NumpyEncoder, load_smile_data
 
 logger = getLogger(__name__)
 
@@ -113,7 +117,7 @@ class SmileData(object):
     def get_handcrafted_features(
         self,
         joined: bool = False,
-        masking: bool = True,
+        masking: bool = False,
         **kwargs,
     ) -> dict[str, ndarray] | ndarray:
         """Get the hand crafted features of the dataset, either as a dicitonary or as
@@ -525,3 +529,117 @@ class SmileData(object):
 
         labels_clean: ndarray = delete(labels, idxs_to_remove, axis=0)
         self.set_labels(labels_clean)
+
+    @staticmethod
+    def _get_feature_selection_criterion(criterion: str) -> Callable:
+        if criterion == "correlation":
+            return pearsonr
+        elif criterion == "mutual information":
+            return mutual_info_classif
+        elif criterion == "chi-square":
+            return chi2
+        elif criterion == "f-score":
+            return f_classif
+
+    @staticmethod
+    def _get_feature_selection_method(method: str) -> _BaseFilter:
+        if method == "percentage":
+            return SelectPercentile
+        elif method == "fixed number":
+            return SelectKBest
+        elif method == "p value":
+            return SelectFwe
+        else:
+            raise ValueError(
+                f'Method "{method}" not recognized. Accepted values are "percentage", "fixed number" and "p value"'
+            )
+
+    @staticmethod
+    def _get_method_attribute_name(method: str) -> _BaseFilter:
+        if method == "percentage":
+            return "percentile"
+        elif method == "fixed number":
+            return "k"
+        elif method == "p value":
+            return "alpha"
+        else:
+            raise ValueError(f'Method "{method}" not recognized.')
+
+    def feature_selection(
+        self,
+        criterion: str,
+        method: str,
+        method_attribute: int | float,
+        joined: bool = False,
+        deep_features: bool = False,
+    ) -> None:
+        """This method allows to select the features to be used in the model.
+
+        Parameters
+        ----------
+        criterion : str
+            criterion to be used for the feature selection. Accepted are:
+            - 'correlation', which uses the correlation coefficient
+            - 'mutual information' which uses the mutual information
+            - 'chi-square' which uses the chi-square
+            - 'f-score' which uses the f-score
+
+        method : str
+            method to be used for the feature selection. Accepted are:
+            - 'percentage' which uses the percentage of the features to be kept
+            - 'fixed number' which uses a fixed number of features to be kept
+            - ' p value' which uses the p value of the features to be kept
+
+        method_attribute : int | float
+            attribute related to the method used, e.g. 10 for `method='percentage'`
+
+        joined : bool, optional
+            if True, the data is joined before the feature selection, otherwise not
+
+        deep_features : bool, optional
+            if True, the feature selection is applied to the deep features as well
+        """
+        criterion = self._get_feature_selection_criterion(criterion=criterion)
+        method_attribute: dict[str, int | float] = {
+            self._get_method_attribute_name(method=method): method_attribute
+        }
+        method: _BaseFilter = self._get_feature_selection_method(method=method)
+
+        hand_crafted_data: dict[str, ndarray] | ndarray = self.get_handcrafted_features(
+            joined=joined
+        )
+        labels: ndarray = self.get_labels()
+
+        if deep_features:
+            deep_data: dict[str, ndarray] | ndarray = self.get_deep_features(
+                joined=joined
+            )
+
+        if joined:
+            # TODO: implement feature selection for joined data.
+            raise NotImplementedError(
+                "I still have not implemented feature selection for when the data is joined together."
+            )
+        else:
+            for feature_name, feature_data in hand_crafted_data.items():
+                x: ndarray = feature_data
+                y: ndarray = labels
+                feature_data_trimmed: ndarray = method(
+                    score_func=criterion, **method_attribute
+                ).fit_transform(X=x, y=y)
+                self.set_handcrafted_feature(
+                    feature=feature_name, data=feature_data_trimmed
+                )
+
+            if deep_features:
+                for feature_name, feature_data in deep_data.items():
+                    x: ndarray = swapaxes(feature_data, 1, 2).reshape(
+                        feature_data.shape[0], -1
+                    )
+                    y: ndarray = labels
+                    feature_data_trimmed: ndarray = method(
+                        criterion, method_attribute
+                    ).fit_transform(X=x, y=y)
+                    self.set_deep_feature(
+                        feature=feature_name, data=feature_data_trimmed
+                    )
