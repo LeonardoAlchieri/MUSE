@@ -67,6 +67,8 @@ class SmileData(object):
             self.data = data["train"] if not test else data["test"]
         else:
             self.data = data
+
+        self.test = test
         self.unravelled = unravelled
         if st_feat:
             self.hand_crafted_features: list[str] = [
@@ -228,9 +230,18 @@ class SmileData(object):
         -------
         ndarray
             the method returns the array with the labels
-        """
 
-        return self.data["labels"]
+        Raises
+        ------
+        RuntimeError
+            if the test set is selected, no labels are present
+        """
+        if not self.test:
+            return self.data["labels"]
+        else:
+            raise RuntimeError(
+                "You asked the labels for the test set: they are not available!"
+            )
 
     def _get_feature_type_from_feature_name(self, feature_name: str) -> str:
         # TODO: add docstring
