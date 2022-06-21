@@ -101,21 +101,40 @@ def cross_validation(
     **kwargs,
 ) -> list[float]:
 
-    parallel_args: dict = kwargs["parallel"]
+    if "parallel" in kwargs:
+        parallel_args: dict = kwargs["parallel"]
+    else:
+        logger.debug(
+            "No args for parallel given. Setting verbose to 0 and pre_dispatch to all"
+        )
+        parallel_args: dict = dict(verbose=0, pre_dispatch="all")
+
     parallel = Parallel(
         n_jobs=n_jobs,
         verbose=parallel_args["verbose"],
         pre_dispatch=parallel_args["pre_dispatch"],
         backend="loky",
     )
-    results = parallel(
-        delayed(fit_and_score)(
-            estimatore=deepcopy(estimator),
-            x=x,
-            y=y,
-            train_idx=train_idx,
-            test_idx=test_idx,
+    if not n_jobs == 1:
+        results = parallel(
+            delayed(fit_and_score)(
+                estimator=deepcopy(estimator),
+                x=x,
+                y=y,
+                train_idx=train_idx,
+                test_idx=test_idx,
+            )
+            for train_idx, test_idx in cv
         )
-        for train_idx, test_idx in cv
-    )
+    else:
+        results = [
+            fit_and_score(
+                estimator=deepcopy(estimator),
+                x=x,
+                y=y,
+                train_idx=train_idx,
+                test_idx=test_idx,
+            )
+            for train_idx, test_idx in cv
+        ]
     return list(results)

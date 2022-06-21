@@ -4,8 +4,11 @@ from numpy import ndarray
 from typing import Callable
 from numpy import stack
 from warnings import warn
+from logging import getLogger
 
 from src.utils.score import Merger
+
+logger = getLogger(__name__)
 
 
 class MultiModalClassifier(ClassifierMixin):
@@ -56,11 +59,15 @@ class MultiModalClassifier(ClassifierMixin):
         if not isinstance(self.fusion_method, str) and not callable(self.fusion_method):
             warn(f"Assuming fusion method to be ML based.")
             # logger.warning('Assuming fusion method to be ML based')
-            y_pred: ndarray = stack(list(y_preds.values()), axis=1)
-            y_pred: ndarray = y_pred.reshape(-1, self.time_length * y_pred.shape[-1])
+            y_pred = self._ravel_back_results(y_preds=y_preds)
 
             y = Merger.check_truth(Merger.ravel_back(y=y, time_length=self.time_length))
             self.fusion_method.fit(y_pred, y)
+
+    def _ravel_back_results(self, y_preds: ndarray) -> ndarray:
+        y_pred: ndarray = stack(list(y_preds.values()), axis=1)
+        y_pred: ndarray = y_pred.reshape(-1, self.time_length * y_pred.shape[-1])
+        return y_pred
 
     def predict(self, x: dict[str, ndarray]) -> ndarray:
         y_preds: dict[str, ndarray] = {}
@@ -70,8 +77,9 @@ class MultiModalClassifier(ClassifierMixin):
                 if not self.probability
                 else model.predict_proba(x[data_name])[:, 1]
             )
+        logger.debug(f"y_preds: {y_preds}")
 
-        y_pred: ndarray = stack(list(y_preds.values()), axis=1).reshape(-1, 20)
+        y_pred = self._ravel_back_results(y_preds=y_preds)
         if not isinstance(self.fusion_method, str) and not callable(self.fusion_method):
             return self.fusion_method.predict(y_pred)
         else:

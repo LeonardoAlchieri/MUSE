@@ -5,7 +5,7 @@ from os.path import join as join_paths
 from sys import path
 from typing import Callable
 
-from numpy import ndarray
+from numpy import ndarray, sqrt
 from numpy.random import seed as set_seed
 from pandas import DataFrame
 from sklearn.base import ClassifierMixin
@@ -33,7 +33,7 @@ from src.utils.score import Merger
 
 
 _filename: str = basename(__file__).split(".")[0][4:]
-basicConfig(filename=f"logs/run/{_filename}.log", level=INFO)
+basicConfig(filename=f"logs/run/{_filename}.log", level=DEBUG)
 logger = getLogger(_filename)
 
 
@@ -174,6 +174,7 @@ def main(random_state: int):
 
     cv_num: int = configs["cross_validation_folds"]
     n_jobs: int = configs["n_jobs"]
+    n_jobs_cv: int = configs["n_jobs_cv"]
     time_length: int = configs["time_length"]
     path_to_data: str = configs["path_to_data"]
     gaussian_process_kernel: str = configs["gaussian_process_kernel"]
@@ -184,6 +185,7 @@ def main(random_state: int):
     st_feat: bool = configs["st_feat"]
     cp_all_config: bool = configs["cp_all_config"]
     feature_selection: bool = configs["feature_selection"]
+    probability: bool = configs["probability"]
     feature_selection_configs: dict = configs["feature_selection_configs"]
     models_config: dict = configs["models_config"]
 
@@ -221,7 +223,7 @@ def main(random_state: int):
     )
 
     features: list[tuple[tuple[str, str], ...]] = [
-        subset for subset in all_subsets(features) if len(subset) != 0
+        subset for subset in all_subsets(features) if len(subset) > 1
     ]
 
     x: dict[str, ndarray] = data.get_handcrafted_features()
@@ -233,7 +235,7 @@ def main(random_state: int):
         t=time_length, n_folds=cv_num, n_data=2070
     )
 
-    for feature_subset in features:
+    for feature_subset in tqdm(features, desc="Iterations over subsets"):
         logger.info(f"Starting feature subset: {feature_subset}")
         current_feature_names: list[str] = [feature[1] for feature in feature_subset]
         models: list[ClassifierMixin] = {
@@ -252,19 +254,22 @@ def main(random_state: int):
                 n_jobs=n_jobs,
             ),
             time_length=time_length,
-            probability=True,
+            probability=probability,
         )
 
         scores = cross_validation(
-            x=x, y=y, estimator=multimodal_classifier, cv=cv, n_jobs=3
+            x=x, y=y, estimator=multimodal_classifier, cv=cv, n_jobs=n_jobs_cv
         )
 
-        results[
-            f"{feature_subset}_{[model.__class__.__name__ for model in models]}"
-        ] = scores
+        results[f"{current_feature_names}"] = scores
 
+    results.loc["mean"] = results.mean(axis=0)
+    results.loc["se"] = results.std(axis=0) / sqrt(cv_num)
     if not debug_mode:
         results.to_csv(join_paths(current_session_path, "cross_val.csv"))
+        logger.info(
+            "Results saved to: " + join_paths(current_session_path, "cross_val.csv")
+        )
     else:
         print(results)
         print("SUCCESS")
