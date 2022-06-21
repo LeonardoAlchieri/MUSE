@@ -10,6 +10,7 @@ from warnings import warn
 from joblib import Parallel, delayed
 from numpy.random import seed as set_seed
 
+path.append(".")
 from src.data.smile import SmileData
 from src.utils.inputation import (
     filling_max,
@@ -19,8 +20,6 @@ from src.utils.inputation import (
     filling_prev,
 )
 from src.utils.io import load_config
-
-path.append(".")
 
 
 _filename: str = basename(__file__).split(".")[0][4:]
