@@ -93,6 +93,7 @@ def get_fusion_method(
             "GaussianProcess",
             n_jobs=n_jobs,
             gaussian_process_kernel=gaussian_process_kernel,
+            probability=probability,
         )
     elif fusion_method == "AdaBoost":
         return get_ml_model("AdaBoost", n_jobs=n_jobs)
