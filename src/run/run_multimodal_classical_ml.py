@@ -192,6 +192,7 @@ def main(random_state: int):
     path_to_data: str = configs["path_to_data"]
     gaussian_process_kernel: str = configs["gaussian_process_kernel"]
     fusion_method: str = configs["fusion_method"]
+    remove_sensor: str | None = configs["remove_sensor"]
     binary: bool = configs["binary"]
     unravelled: bool = configs["unravelled"]
     debug_mode: bool = configs["debug_mode"]
@@ -236,8 +237,13 @@ def main(random_state: int):
     )
 
     features: list[tuple[tuple[str, str], ...]] = [
-        subset for subset in all_subsets(features) if len(subset) > 1
+        subset
+        for subset in all_subsets(
+            [feat for feat in features if feat[-1] != remove_sensor]
+        )
+        if len(subset) > 1
     ]
+    logger.info(f"Selected subsets of features: {features}")
 
     x: dict[str, ndarray] = data.get_handcrafted_features()
     y: ndarray = data.get_labels()

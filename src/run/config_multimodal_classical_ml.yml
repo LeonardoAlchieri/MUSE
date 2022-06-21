@@ -4,11 +4,11 @@ n_jobs_cv: 5
 time_length: 10
 path_to_data: "./data.nosync/dataset_smile_challenge_unravelled_train_cut10_stadd.npy"
 gaussian_process_kernel:  # correctly accepted: matern or empty string
-fusion_method: 'SVM' # correctly accepted: majority_voting, max, average or the following models: GaussianProcess, AdaBoost, QDA and SVM
+fusion_method: 'average' # correctly accepted: majority_voting, max, average or the following models: GaussianProcess, AdaBoost, QDA and SVM
+remove_sensor: 'GSR_features' # if empty, all shall be used; accepted values: ECG_features, ST_features, GSR_features
 binary: True
 debug_mode: False
 unravelled: True
-
 st_feat: True
 cp_all_config: True
 feature_selection: True
