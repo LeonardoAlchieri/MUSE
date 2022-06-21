@@ -87,9 +87,9 @@ def fit_and_score(
     y_train: ndarray = y[train_idx]
     y_test: ndarray = y[test_idx]
 
-    estimator.fit(x_train, y_train)
+    estimator.fit(deepcopy(x_train), deepcopy(y_train))
 
-    return estimator.score(x_test, y_test)
+    return estimator.score(deepcopy(x_test), deepcopy(y_test))
 
 
 def cross_validation(
@@ -119,8 +119,8 @@ def cross_validation(
         results = parallel(
             delayed(fit_and_score)(
                 estimator=deepcopy(estimator),
-                x=x,
-                y=y,
+                x=deepcopy(x),
+                y=deepcopy(y),
                 train_idx=train_idx,
                 test_idx=test_idx,
             )

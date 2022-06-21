@@ -152,14 +152,13 @@ def get_ml_model(
     ml_models: list[ClassifierMixin] = [
         GaussianProcessClassifier(
             n_jobs=n_jobs,
-            probability=probability,
             copy_X_train=False,
             kernel=Matern(length_scale=1.0, nu=0.5)
             if gaussian_process_kernel == "matern"
             else None,
         ),  # this is O(m^3) in memory!!!
-        AdaBoostClassifier(probability=probability),
-        QuadraticDiscriminantAnalysis(probability=probability),
+        AdaBoostClassifier(),
+        QuadraticDiscriminantAnalysis(),
         SVC(probability=probability),
     ]
     if model_name == "GaussianProcess":
