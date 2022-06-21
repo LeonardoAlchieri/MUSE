@@ -38,7 +38,10 @@ logger = getLogger(_filename)
 
 
 def get_fusion_method(
-    fusion_method: str, gaussian_process_kernel: str | None, n_jobs: int = -1
+    fusion_method: str,
+    gaussian_process_kernel: str | None,
+    n_jobs: int = -1,
+    probability: bool = False,
 ) -> Callable | ClassifierMixin:
     """Simple auxiliary function to select the fusion method based on a config string.
 
@@ -65,6 +68,9 @@ def get_fusion_method(
         - "matern" for Matern kernel
         - None, for RBF
         For all other input values, the choice will be RBF.
+
+    probability: bool
+        if True, the model will be trained with probability estimates.
 
     Returns
     -------
@@ -102,7 +108,10 @@ def get_fusion_method(
 
 
 def get_ml_model(
-    model_name: str, n_jobs: int, gaussian_process_kernel: str | None = None
+    model_name: str,
+    n_jobs: int,
+    gaussian_process_kernel: str | None = None,
+    probability: bool = False,
 ) -> ClassifierMixin:
     """Simple auxiliary function to select the ml model based on a config string.
 
@@ -125,6 +134,9 @@ def get_ml_model(
         - None, for RBF
         For all other input values, the choice will be RBF.
 
+    probability: bool
+        if True, the model will be trained with probability estimates.
+
     Returns
     -------
     ClassifierMixin
@@ -139,14 +151,15 @@ def get_ml_model(
     ml_models: list[ClassifierMixin] = [
         GaussianProcessClassifier(
             n_jobs=n_jobs,
+            probability=probability,
             copy_X_train=False,
             kernel=Matern(length_scale=1.0, nu=0.5)
             if gaussian_process_kernel == "matern"
             else None,
         ),  # this is O(m^3) in memory!!!
-        AdaBoostClassifier(),
-        QuadraticDiscriminantAnalysis(),
-        SVC(),
+        AdaBoostClassifier(probability=probability),
+        QuadraticDiscriminantAnalysis(probability=probability),
+        SVC(probability=probability),
     ]
     if model_name == "GaussianProcess":
         return ml_models[0]
@@ -243,6 +256,7 @@ def main(random_state: int):
                 model_name=models_config[feature_name],
                 gaussian_process_kernel=gaussian_process_kernel,
                 n_jobs=n_jobs,
+                probability=probability,
             )
             for feature_name in current_feature_names
         }
@@ -252,6 +266,7 @@ def main(random_state: int):
                 fusion_method,
                 gaussian_process_kernel=gaussian_process_kernel,
                 n_jobs=n_jobs,
+                probability=probability,
             ),
             time_length=time_length,
             probability=probability,
