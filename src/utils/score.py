@@ -1,12 +1,17 @@
-from typing import Callable
-
+from typing import Callable, Iterable
+from os.path import basename
+from logging import getLogger
 from numpy import array, mean, ndarray
 from numpy import round as approximate
 from scipy.stats import mode
 from sklearn.base import ClassifierMixin
+from joblib import Parallel, delayed
+from copy import deepcopy
+
+logger = getLogger(__name__)
 
 
-class MergeScorer:
+class Merger:
     def __init__(
         self, scorer: Callable, merge_strategy: Callable, time_length: int = 60
     ):
@@ -18,7 +23,7 @@ class MergeScorer:
             self.merge_strategy = self._get_merge_strategy(strategy_name=merge_strategy)
 
     @staticmethod
-    def _get_merge_strategy(strategy_name: str) -> Callable:
+    def _get_merge_strategy(strategy_name: str) -> Callable[..., ndarray]:
         if strategy_name == "average" or strategy_name == "mean":
             return lambda x: approximate(mean(x, axis=1))
         elif strategy_name == "majority_voting":
@@ -36,6 +41,10 @@ class MergeScorer:
         # has to be time effetive
         return y_true[:, 0]
 
+    @staticmethod
+    def ravel_back(y: ndarray, time_length: int) -> ndarray:
+        return array(y).reshape(-1, time_length)
+
     def score(
         self,
         estimator: ClassifierMixin,
@@ -44,10 +53,69 @@ class MergeScorer:
         sample_weight: ndarray = None,
     ) -> float:
         y_pred = estimator.predict(X_test)
-        y_true = array(y_true).reshape(-1, self.time_length)
-        y_pred = array(y_pred).reshape(-1, self.time_length)
+        # here we go from (N*T) to (N, T)
+        y_true = self.ravel_back(y_true, time_length=self.time_length)
+        y_pred = self.ravel_back(y_pred, time_length=self.time_length)
+
         # the predictions have to be merged w/ the given method
         y_pred = self.merge_strategy(y_pred)
         # the ground truth, I expect them to be all the same
         y_true = self.check_truth(y_true)
         return self.scorer(y_true, y_pred, sample_weight=sample_weight)
+
+
+def fit_and_score(
+    estimator: ClassifierMixin,
+    x: dict[str, ndarray] | ndarray,
+    y: ndarray,
+    train_idx: ndarray,
+    test_idx: ndarray,
+) -> float:
+    if isinstance(x, dict):
+        logger.info(f"x Input is dictionary")
+        x_train: dict[str, ndarray] = {
+            data_name: x[data_name][train_idx] for data_name in x.keys()
+        }
+        x_test: dict[str, ndarray] = {
+            data_name: x[data_name][test_idx] for data_name in x.keys()
+        }
+    else:
+        logger.info(f"x Input is not dictionary. Assuming it is ndarray")
+        x_train = x[train_idx]
+        x_test = x[test_idx]
+
+    y_train: ndarray = y[train_idx]
+    y_test: ndarray = y[test_idx]
+
+    estimator.fit(x_train, y_train)
+
+    return estimator.score(x_test, y_test)
+
+
+def cross_validation(
+    x: dict[str, ndarray] | ndarray,
+    y: ndarray,
+    estimator: ClassifierMixin,
+    cv: Iterable[tuple[ndarray, ndarray]],
+    n_jobs: int | None = None,
+    **kwargs,
+) -> list[float]:
+
+    parallel_args: dict = kwargs["parallel"]
+    parallel = Parallel(
+        n_jobs=n_jobs,
+        verbose=parallel_args["verbose"],
+        pre_dispatch=parallel_args["pre_dispatch"],
+        backend="loky",
+    )
+    results = parallel(
+        delayed(fit_and_score)(
+            estimatore=deepcopy(estimator),
+            x=x,
+            y=y,
+            train_idx=train_idx,
+            test_idx=test_idx,
+        )
+        for train_idx, test_idx in cv
+    )
+    return list(results)
