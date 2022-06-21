@@ -88,4 +88,7 @@ class MultiModalClassifier(ClassifierMixin):
     def score(self, x: dict[str, ndarray], y: ndarray) -> float:
         y_pred = self.predict(x)
         y = Merger.check_truth(Merger.ravel_back(y=y, time_length=self.time_length))
+        logger.info(f"y_pred: {y_pred}")
+        logger.info(f"y: {y}")
+
         return accuracy_score(y_pred, y)
