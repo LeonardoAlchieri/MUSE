@@ -2,6 +2,7 @@ from typing import Callable
 from sklearn.base import ClassifierMixin
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 from sklearn.ensemble import AdaBoostClassifier
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.gaussian_process.kernels import Matern
@@ -71,6 +72,8 @@ def get_fusion_method(
         return get_ml_model("QDA", n_jobs=n_jobs)
     elif fusion_method == "SVM":
         return get_ml_model("SVM", n_jobs=n_jobs)
+    elif fusion_method == "KNN":
+        return get_ml_model("KNN", n_jobs=n_jobs)
     else:
         raise ValueError(
             f"Unknown fusion method: {fusion_method}.\
@@ -130,6 +133,7 @@ def get_ml_model(
         AdaBoostClassifier(),
         QuadraticDiscriminantAnalysis(),
         SVC(probability=probability),
+        KNeighborsClassifier(n_neighbors=5, n_jobs=n_jobs),
     ]
     if model_name == "GaussianProcess":
         return ml_models[0]
@@ -139,6 +143,8 @@ def get_ml_model(
         return ml_models[2]
     elif model_name == "SVM":
         return ml_models[3]
+    elif model_name == "KNN":
+        return ml_models[4]
     else:
         raise ValueError(
             f"Unknown model name: {model_name}.\
