@@ -71,9 +71,11 @@ def main(random_state: int):
             path_to_config=path_to_config, task=_filename, cp_all_config=cp_all_config
         )
     else:
+        n_jobs: int = 1
+        n_jobs_cv: int = 1
         print("DEBUG MODE ACTIVATED!")
 
-    data = SmileData(path_to_data=path_to_data, test=False, debug_mode=debug_mode)
+    data = SmileData(path_to_data=path_to_data, test=False, debug_mode=False)
 
     if feature_selection:
         data.feature_selection(**feature_selection_configs)

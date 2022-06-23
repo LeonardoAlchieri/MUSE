@@ -7,6 +7,7 @@ from scipy.stats import mode
 from sklearn.base import ClassifierMixin
 from joblib import Parallel, delayed
 from copy import deepcopy
+from sklearn.inspection import permutation_importance
 
 logger = getLogger(__name__)
 
@@ -70,6 +71,7 @@ def fit_and_score(
     y: ndarray,
     train_idx: ndarray,
     test_idx: ndarray,
+    **kwargs,
 ) -> float:
     if isinstance(x, dict):
         logger.info(f"x Input is dictionary")
@@ -89,7 +91,21 @@ def fit_and_score(
 
     estimator.fit(deepcopy(x_train), deepcopy(y_train))
 
-    return estimator.score(deepcopy(x_test), deepcopy(y_test))
+    if "n_repeats" in kwargs.keys():
+        n_repeats: int = kwargs["n_repeats"]
+    else:
+        n_repeats: int = 1
+
+    if "n_jobs" in kwargs.keys():
+        n_jobs: int = kwargs["n_jobs"]
+    else:
+        n_jobs: int = 1
+    feature_importances: tuple[
+        dict[str, ndarray], ndarray | None
+    ] = estimator.feature_importance(
+        x=x_test, y=y_test, n_repeats=n_repeats, n_jobs=n_jobs
+    )
+    return estimator.score(deepcopy(x_test), deepcopy(y_test)), feature_importances
 
 
 def cross_validation(
@@ -98,6 +114,7 @@ def cross_validation(
     estimator: ClassifierMixin,
     cv: Iterable[tuple[ndarray, ndarray]],
     n_jobs: int | None = None,
+    n_repeats: int = 10,
     **kwargs,
 ) -> list[float]:
 
@@ -123,6 +140,8 @@ def cross_validation(
                 y=deepcopy(y),
                 train_idx=train_idx,
                 test_idx=test_idx,
+                n_repeats=n_repeats,
+                n_jobs=n_jobs,
             )
             for train_idx, test_idx in cv
         )
@@ -134,6 +153,8 @@ def cross_validation(
                 y=y,
                 train_idx=train_idx,
                 test_idx=test_idx,
+                n_repeats=n_repeats,
+                n_jobs=n_jobs,
             )
             for train_idx, test_idx in cv
         ]
