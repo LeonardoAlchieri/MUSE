@@ -7,7 +7,6 @@ from scipy.stats import mode
 from sklearn.base import ClassifierMixin
 from joblib import Parallel, delayed
 from copy import deepcopy
-from sklearn.inspection import permutation_importance
 
 logger = getLogger(__name__)
 
@@ -71,8 +70,11 @@ def fit_and_score(
     y: ndarray,
     train_idx: ndarray,
     test_idx: ndarray,
+    cm: bool,
     **kwargs,
-) -> float:
+) -> tuple[float, tuple[dict[str, ndarray], ndarray | None], ndarray] | tuple[
+    float, tuple[dict[str, ndarray], ndarray | None]
+]:
     if isinstance(x, dict):
         logger.info(f"x Input is dictionary")
         x_train: dict[str, ndarray] = {
@@ -105,7 +107,19 @@ def fit_and_score(
     ] = estimator.feature_importance(
         x=x_test, y=y_test, n_repeats=n_repeats, n_jobs=n_jobs
     )
-    return estimator.score(deepcopy(x_test), deepcopy(y_test)), feature_importances
+
+    if cm:
+        confusion_matrix = estimator.confusion_matrix(x=x_test, y=y_test)
+        return (
+            estimator.score(deepcopy(x_test), deepcopy(y_test)),
+            feature_importances,
+            confusion_matrix,
+        )
+    else:
+        return (
+            estimator.score(deepcopy(x_test), deepcopy(y_test)),
+            feature_importances,
+        )
 
 
 def cross_validation(
@@ -113,10 +127,11 @@ def cross_validation(
     y: ndarray,
     estimator: ClassifierMixin,
     cv: Iterable[tuple[ndarray, ndarray]],
+    cm: bool = False,
     n_jobs: int | None = None,
     n_repeats: int = 10,
     **kwargs,
-) -> list[float]:
+) -> list[tuple[float, tuple[dict[str, ndarray], ndarray | None], ndarray]]:
 
     if "parallel" in kwargs:
         parallel_args: dict = kwargs["parallel"]
@@ -142,6 +157,7 @@ def cross_validation(
                 test_idx=test_idx,
                 n_repeats=n_repeats,
                 n_jobs=n_jobs,
+                cm=cm,
             )
             for train_idx, test_idx in cv
         )
@@ -155,6 +171,7 @@ def cross_validation(
                 test_idx=test_idx,
                 n_repeats=n_repeats,
                 n_jobs=n_jobs,
+                cm=cm,
             )
             for train_idx, test_idx in cv
         ]

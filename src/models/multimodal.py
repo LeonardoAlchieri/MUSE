@@ -1,4 +1,4 @@
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.base import ClassifierMixin
 from sklearn.inspection import permutation_importance
 from numpy import ndarray
@@ -66,6 +66,34 @@ class MultiModalClassifier(ClassifierMixin):
             y = Merger.check_truth(Merger.ravel_back(y=y, time_length=self.time_length))
             self.fusion_method.fit(y_pred, y)
 
+    def confusion_matrix(self, x: dict[str, ndarray], y: ndarray) -> ndarray:
+        """Method to compute the confusion matrix.
+
+        Parameters
+        ----------
+        x : dict[str, ndarray]
+            x input data, given as a dictionary of ndarrays, where the keys are
+            the different features
+        y : ndarray
+            array of true labels
+
+        Returns
+        -------
+        ndarray
+            the method returns the confusion matrix, as evaluated using the
+            `confusion_matrix` method in `sklearn`.
+        """
+        y_preds = {
+            data_name: model.predict(x[data_name])
+            if not self.probability
+            else model.predict_proba(x[data_name])[:, 1]
+            for data_name, model in self.models.items()
+        }
+        y_pred = self._ravel_back_results(y_preds=y_preds)
+        y = Merger.check_truth(Merger.ravel_back(y=y, time_length=self.time_length))
+
+        return confusion_matrix(y_true=y, y_pred=self.fusion_method.predict(y_pred))
+
     def feature_importance(
         self, x: dict[str, ndarray], y: ndarray, n_repeats: int = 10, n_jobs: int = -1
     ) -> tuple[dict[str, ndarray], ndarray | None]:
@@ -108,7 +136,7 @@ class MultiModalClassifier(ClassifierMixin):
                 f"permutation_importance_scores: {permutation_importance_scores[data_name].shape}"
             )
 
-        fusion_importance: ndarray | None = ...
+        fusion_importance: ndarray | None
         if not isinstance(self.fusion_method, str) and not callable(self.fusion_method):
             if hasattr(self.fusion_method, "feature_importances_"):
                 fusion_importance: ndarray = self.fusion_method.feature_importances_
@@ -132,6 +160,7 @@ class MultiModalClassifier(ClassifierMixin):
                 fusion_importance: ndarray = permutation_importance(
                     self.fusion_method, y_pred, y
                 )["importances_mean"]
+                logger.debug(f"fusion_importance: {fusion_importance.shape}")
         else:
             logger.warning(
                 "Can only compute importance at fusion for ML models. Skipping."
@@ -139,7 +168,6 @@ class MultiModalClassifier(ClassifierMixin):
             warn("Can only compute importance at fusion for ML models. Skipping.")
             fusion_importance: None = None
 
-        logger.debug(f"fusion_importance: {fusion_importance.shape}")
         return permutation_importance_scores, fusion_importance
 
     def _ravel_back_results(self, y_preds: ndarray) -> ndarray:

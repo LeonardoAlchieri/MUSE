@@ -1,6 +1,6 @@
 cross_validation_folds: 10
 n_jobs: -1
-n_jobs_cv: -1
+n_jobs_cv: 3
 time_length: 10
 path_to_data: "./data.nosync/dataset_smile_challenge_unravelled_train_cut10_stadd.npy"
 gaussian_process_kernel:  # correctly accepted: matern or empty string
@@ -9,7 +9,7 @@ fusion_method: # correctly accepted: majority_voting, max, average or the follow
   - 'GaussianProcess'
   - 'AdaBoost'
   # - 'majority_voting' # DO NOT RUN IF PROBABILITY IS TRUE: DOES NOT MAKE SENSE!
-  - 'QDA'
+  # - 'QDA'
   - 'SVM'
 remove_sensor: 'GSR_features' # if empty, all shall be used; accepted values: ECG_features, ST_features, GSR_features
 binary: True
@@ -18,7 +18,7 @@ unravelled: True
 st_feat: True
 cp_all_config: True
 feature_selection: False
-probability: True
+probability: False
 shuffle_cv: False # DANGER: may not be correct when True
 feature_selection_configs:
   criterion: 'mutual information' # available: correlation, mutual information, chi-square, f_classif
