@@ -62,6 +62,7 @@ def main(random_state: int):
     cp_all_config: bool = configs["cp_all_config"]
     feature_selection: bool = configs["feature_selection"]
     probability: bool = configs["probability"]
+    shuffle_cv: bool = configs["shuffle_cv"]
     feature_selection_configs: dict = configs["feature_selection_configs"]
     models_config: dict = configs["models_config"]
 
@@ -113,7 +114,7 @@ def main(random_state: int):
         y: ndarray = make_binary(y)
 
     cv: list[tuple[ndarray, ndarray]] = make_unravelled_folds(
-        t=time_length, n_folds=cv_num, n_data=2070
+        t=time_length, n_folds=cv_num, n_data=2070, shuffle=shuffle_cv
     )
 
     if isinstance(fusion_methods, str):

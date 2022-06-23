@@ -65,8 +65,12 @@ def main(random_state: int):
     )
 
     if feature_selection:
-        data.feature_selection(**feature_selection_configs)
-        data_test.feature_selection(**feature_selection_configs)
+        selected_idxs: dict[str, ndarray] = data.feature_selection(
+            **feature_selection_configs
+        )
+        data_test.trim_features_selected(
+            idxs=selected_idxs, **feature_selection_configs
+        )
 
     if not unravelled:
         raise NotImplementedError(
