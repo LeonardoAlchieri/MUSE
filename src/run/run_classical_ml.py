@@ -37,7 +37,7 @@ from src.utils.io import (
     delete_output_folder_exception,
     load_config,
 )
-from src.utils.score import MergeScorer
+from src.utils.score import Merger
 
 
 _filename: str = basename(__file__).split(".")[0][4:]
@@ -187,7 +187,7 @@ def main(random_state: int):
                     y=y,
                     cv=cv,
                     n_jobs=3,
-                    scoring=MergeScorer(
+                    scoring=Merger(
                         scorer=accuracy_score,
                         merge_strategy=time_merge_strategy,
                         time_length=time_length,

@@ -1,10 +1,11 @@
 from warnings import warn
 
 from numpy import arange, concatenate, ndarray
+from random import shuffle as shuffle_around
 
 
 def make_unravelled_folds(
-    t: int, n_folds: int, n_data: int = 2070
+    t: int, n_folds: int, n_data: int = 2070, shuffle: bool = False
 ) -> list[tuple[ndarray, ndarray]]:
     """Method to create, for the unravelled data, i.e. of shape ``(2070*t, N_FEATURES)``,
     the folds for the cross-validation. This is needed since otherwise some problems,
@@ -18,6 +19,8 @@ def make_unravelled_folds(
         number of folds for the crossvalidation
     n_data : int, optional
         lenght of the input array, by default 2070
+    shuffle : bool, optional
+        whether to shuffle the data, by default False
 
     Returns
     -------
@@ -32,6 +35,9 @@ def make_unravelled_folds(
 
     # this array represent the original n_data labels
     idx_arr: ndarray = arange(0, n_data)
+    if shuffle:
+        # NOTE: the shuffling is inplace
+        shuffle_around(idx_arr)
     len_fold = len(idx_arr) // n_folds
     if len_fold * n_folds != len(idx_arr):
         warn(
