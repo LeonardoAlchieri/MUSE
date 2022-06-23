@@ -1,5 +1,6 @@
 # macos/others
 data.nosync/
+*.csv
 *.nosync/
 .DS_Store
 .vscode/

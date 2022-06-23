@@ -1,4 +1,4 @@
-from numpy import nan_to_num, ndarray, nanmean, isnan, array, where, nanmedian
+from numpy import array, isnan, nan_to_num, nanmean, nanmedian, ndarray, where
 from scipy.stats import mode
 
 

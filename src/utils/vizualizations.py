@@ -1,6 +1,6 @@
+from matplotlib.axes._subplots import SubplotBase
 from numpy import ndarray
 from pandas import DataFrame
-from matplotlib.axes._subplots import SubplotBase
 
 
 def add_text_barplot(

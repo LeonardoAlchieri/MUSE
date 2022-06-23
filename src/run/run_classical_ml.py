@@ -1,40 +1,43 @@
-from re import I
-from sys import path
-from logging import getLogger, basicConfig, DEBUG, INFO, WARNING
-from typing import Callable
-from os.path import basename, join as join_paths
-from pandas import DataFrame
-from numpy.random import seed as set_seed
-from numpy import ndarray
 from gc import collect as picking_trash_up
-from tqdm import tqdm
+from logging import DEBUG, INFO, WARNING, basicConfig, getLogger
+from os.path import basename
+from os.path import join as join_paths
+from sys import path
+from typing import Callable
 
-from sklearn.model_selection import cross_val_score
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import SVC
-from sklearn.gaussian_process import GaussianProcessClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+from numpy import ndarray
+from numpy.random import seed as set_seed
+from pandas import DataFrame
 from sklearn.base import ClassifierMixin
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import Matern
 from sklearn.metrics import accuracy_score
-
+from sklearn.model_selection import cross_val_score
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from tqdm import tqdm
 from xgboost import XGBClassifier
 
 path.append(".")
 from src.data.smile import SmileData
-from src.utils.io import load_config, create_output_folder
 from src.utils import make_binary
+from src.utils.cv import make_unravelled_folds
 from src.utils.inputation import (
+    filling_max,
     filling_mean,
-    filling_prev,
     filling_median,
     filling_mode,
-    filling_max,
+    filling_prev,
 )
-from src.utils.cv import make_unravelled_folds
-from src.utils.score import MergeScorer
+from src.utils.io import (
+    create_output_folder,
+    delete_output_folder_exception,
+    load_config,
+)
+from src.utils.score import Merger
 
 
 _filename: str = basename(__file__).split(".")[0][4:]
@@ -57,19 +60,26 @@ def main(random_state: int):
     path_to_data: str = configs["path_to_data"]
     missing_values_inputation: str = configs["missing_values_inputation"]
     time_merge_strategy: str = configs["time_merge_strategy"]
+    gaussian_process_kernel: str = configs["gaussian_process_kernel"]
     binary: bool = configs["binary"]
     unravelled: bool = configs["unravelled"]
     debug_mode: bool = configs["debug_mode"]
     st_feat: bool = configs["st_feat"]
+    cp_all_config: bool = configs["cp_all_config"]
+    feature_selection: bool = configs["feature_selection"]
+    feature_selection_configs: dict = configs["feature_selection_configs"]
 
     if not debug_mode:
         current_session_path = create_output_folder(
-            path_to_config=path_to_config, task=_filename
+            path_to_config=path_to_config, task=_filename, cp_all_config=cp_all_config
         )
     else:
         print("DEBUG MODE ACTIVATED!")
 
     data = SmileData(path_to_data=path_to_data, test=False, debug_mode=debug_mode)
+
+    if feature_selection:
+        data.feature_selection(**feature_selection_configs)
 
     if st_feat:
         features: list[tuple[str, str]] = [
@@ -106,7 +116,11 @@ def main(random_state: int):
         KNeighborsClassifier(n_jobs=n_jobs),
         # SVC(verbose=1,),
         GaussianProcessClassifier(
-            n_jobs=n_jobs, copy_X_train=False
+            n_jobs=n_jobs,
+            copy_X_train=False,
+            kernel=Matern(length_scale=1.0, nu=0.1)
+            if gaussian_process_kernel == "matern"
+            else None,
         ),  # this is O(m^3) in memory!!!
         DecisionTreeClassifier(),
         AdaBoostClassifier(),
@@ -156,8 +170,13 @@ def main(random_state: int):
                 if unravelled:
                     # if the data is unravelled, we need a custom way to give
                     # folds to teh cross_val_score method
+                    n_data: int = x.shape[0]
+                    if n_data != y.shape[0]:
+                        raise ValueError(
+                            f"The number of data points in x and y are not the same: {n_data} != {y.shape[0]}"
+                        )
                     cv: list[tuple[ndarray, ndarray]] = make_unravelled_folds(
-                        t=time_length, n_folds=cv_num, n_data=2070
+                        t=time_length, n_folds=cv_num, n_data=n_data // time_length
                     )
                 else:
                     cv: int = cv_num
@@ -168,7 +187,7 @@ def main(random_state: int):
                     y=y,
                     cv=cv,
                     n_jobs=3,
-                    scoring=MergeScorer(
+                    scoring=Merger(
                         scorer=accuracy_score,
                         merge_strategy=time_merge_strategy,
                         time_length=time_length,
@@ -191,4 +210,16 @@ def main(random_state: int):
 
 if __name__ == "__main__":
     random_state: int = 42
-    main(random_state=random_state)
+    try:
+        main(random_state=random_state)
+    except:
+        logger.warning("Process terminated early. Removing save directory.")
+        print("!!!!! Process terminated early. Removing save directory. !!!!!")
+        res = delete_output_folder_exception(task=_filename)
+        if res:
+            print("Dir removed successfully")
+            logger.info("Dir removed successfully")
+        else:
+            print("Dir not removed")
+            logger.info("Dir not removed")
+        raise

@@ -1,24 +1,25 @@
 # In this script, we load the data, of shape (2070, `TIME`, `N_FEATURES`)
 # and change it to shape (2070*`TIME`, `N_FEATURES`).
+from logging import INFO, basicConfig, getLogger
+from os.path import basename
+from os.path import join as join_paths
 from sys import path
-from logging import basicConfig, getLogger, INFO
-from os.path import basename, join as join_paths
-from warnings import warn
-from numpy.random import seed as set_seed
 from typing import Callable
+from warnings import warn
 
 from joblib import Parallel, delayed
+from numpy.random import seed as set_seed
 
 path.append(".")
-from src.utils.io import load_config
 from src.data.smile import SmileData
 from src.utils.inputation import (
+    filling_max,
     filling_mean,
-    filling_prev,
     filling_median,
     filling_mode,
-    filling_max,
+    filling_prev,
 )
+from src.utils.io import load_config
 
 
 _filename: str = basename(__file__).split(".")[0][4:]
@@ -43,6 +44,7 @@ def main(random_state: int):
     debug_mode: bool = configs["debug_mode"]
     test: bool = configs["test"]
     make_st_feat: bool = configs["make_st_feat"]
+    remove_flatlines: bool = configs["remove_flatlines"]
 
     # "average" # or "remove_user", "previous_val", "mediam", "most_frequent"
     missing_methods_dict: dict[Callable] = dict(
@@ -90,7 +92,8 @@ def main(random_state: int):
                 features=feature_tuple,
                 filling_method=missing_methods_dict[missing_values_inputation],
             )
-
+    if remove_flatlines:
+        data.remove_flatlines()
     data.timecut(timestep_length=timestep_length)
     data.unravel(inplace=True)
 
