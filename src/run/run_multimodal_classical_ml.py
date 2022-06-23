@@ -153,7 +153,10 @@ def main(random_state: int):
                 x=x, y=y, estimator=multimodal_classifier, cv=cv, n_jobs=n_jobs_cv
             )
 
-            results[f"{current_feature_names} {fusion_method}"] = scores
+            # TODO: deal with explainability scores
+            results[f"{current_feature_names} {fusion_method}"] = [
+                score[0] for score in scores
+            ]
 
     results.loc["mean"] = results.mean(axis=0)
     results.loc["se"] = results.std(axis=0) / sqrt(cv_num)
