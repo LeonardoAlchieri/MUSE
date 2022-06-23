@@ -403,8 +403,13 @@ class SmileData(object):
         None | 'SmileData'
             if inplace is True, the method returns None. Otherwise, it returns a new SmileData object.
         """
-
-        self.set_labels(repeat(self.get_labels(), self._get_time_duration()))
+        if self.test:
+            # FIXME: this is just a gargabe workaround to get the method not to fail
+            self.test = False
+            self.set_labels(repeat(self.get_labels(), self._get_time_duration()))
+            self.test = True
+        else:
+            self.set_labels(repeat(self.get_labels(), self._get_time_duration()))
 
         hand_crafted_data: dict[str, ndarray] = self.get_handcrafted_features(
             joined=False
@@ -551,6 +556,10 @@ class SmileData(object):
             return chi2
         elif criterion == "f-score":
             return f_classif
+        else:
+            raise ValueError(
+                f'Criterion "{criterion}" not recognized. Accepted values are "correlation", "mutual information", "chi-square" and "f-score"'
+            )
 
     @staticmethod
     def _get_feature_selection_method(method: str) -> _BaseFilter:
@@ -574,7 +583,9 @@ class SmileData(object):
         elif method == "p value":
             return "alpha"
         else:
-            raise ValueError(f'Method "{method}" not recognized.')
+            raise ValueError(
+                f'Method "{method}" not recognized. Accepted values are "percentage", "fixed number" and "p value"'
+            )
 
     def feature_selection(
         self,
@@ -583,7 +594,7 @@ class SmileData(object):
         method_attribute: int | float,
         joined: bool = False,
         deep_features: bool = False,
-    ) -> None:
+    ) -> dict[str, ndarray] | dict[str, dict[str, ndarray]]:
         """This method allows to select the features to be used in the model.
 
         Parameters
@@ -609,6 +620,13 @@ class SmileData(object):
 
         deep_features : bool, optional
             if True, the feature selection is applied to the deep features as well
+
+        Returns
+        -------
+        dict[str, ndarray] | dict[str, dict[str, ndarray]]
+            if deep_features is False, a dict with the selected features as keys and the data as values;
+            otherwise, one more level for the dict, distinguishing between the handcrafted and deep features,
+            will be available.
         """
         criterion = self._get_feature_selection_criterion(criterion=criterion)
         method_attribute: dict[str, int | float] = {
@@ -632,25 +650,89 @@ class SmileData(object):
                 "I still have not implemented feature selection for when the data is joined together."
             )
         else:
+            result_idx: dict[str, ndarray] = {}
             for feature_name, feature_data in hand_crafted_data.items():
                 x: ndarray = feature_data
                 y: ndarray = labels
-                feature_data_trimmed: ndarray = method(
+                feature_selector: _BaseFilter = method(
                     score_func=criterion, **method_attribute
-                ).fit_transform(X=x, y=y)
+                )
+                feature_data_trimmed: ndarray = feature_selector.fit_transform(X=x, y=y)
                 self.set_handcrafted_feature(
                     feature=feature_name, data=feature_data_trimmed
                 )
+                result_idx[feature_name] = feature_selector.get_support(indices=True)
+                del feature_selector
 
             if deep_features:
+                result_idx: dict[str, dict[str, ndarray]] = dict(
+                    handcrafted_features=result_idx
+                )
                 for feature_name, feature_data in deep_data.items():
                     x: ndarray = swapaxes(feature_data, 1, 2).reshape(
                         feature_data.shape[0], -1
                     )
                     y: ndarray = labels
-                    feature_data_trimmed: ndarray = method(
-                        criterion, method_attribute
-                    ).fit_transform(X=x, y=y)
+                    feature_selector: _BaseFilter = method(criterion, method_attribute)
+                    feature_data_trimmed: ndarray = feature_selector.fit_transform(
+                        X=x, y=y
+                    )
                     self.set_deep_feature(
                         feature=feature_name, data=feature_data_trimmed
                     )
+                    result_idx["deep_features"][
+                        feature_name
+                    ] = feature_selector.get_support(indices=True)
+                    del feature_selector
+                return result_idx
+            else:
+                return result_idx
+
+    def trim_features_selected(
+        self,
+        idxs: dict[str, ndarray] | dict[str, dict[str, ndarray]],
+        deep_features: bool = False,
+        joined: bool = False,
+        **kwargs,
+    ) -> None:
+        """This method allows to select a subset of features from a given array of indeces.
+
+        Parameters
+        ----------
+        idxs : dict[str, ndarray] | dict[str, dict[str, ndarray]]
+            if deep_features is False, a dict with the selected features as keys and the indces as values;
+            otherwise, one more level for the dict, distinguishing between the handcrafted and deep features.
+
+        deep_features : bool, optional
+            if True, the feature selection is applied to the deep features as well
+
+        joined : bool, optional
+            if True, the data is joined before the feature selection, otherwise not
+        """
+        hand_crafted_data: dict[str, ndarray] | ndarray = self.get_handcrafted_features(
+            joined=joined
+        )
+        if deep_features:
+            deep_data: dict[str, ndarray] | ndarray = self.get_deep_features(
+                joined=joined
+            )
+            hand_crafted_idxs: dict[str, ndarray] = idxs["handcrafted_features"]
+            deep_idxs: dict[str, ndarray] = idxs["deep_features"]
+
+            for feature_name, idx in hand_crafted_idxs.items():
+                self.set_handcrafted_feature(
+                    feature=feature_name,
+                    data=hand_crafted_data[feature_name][:, idx],
+                )
+
+            for feature_name, idx in deep_idxs.items():
+                self.set_deep_feature(
+                    feature=feature_name,
+                    data=deep_data[feature_name][:, idx],
+                )
+        else:
+            for feature_name, idx in idxs.items():
+                self.set_handcrafted_feature(
+                    feature=feature_name,
+                    data=hand_crafted_data[feature_name][:, idx],
+                )
