@@ -21,6 +21,14 @@ class Merger:
             self.merge_strategy = merge_strategy
         elif isinstance(merge_strategy, str):
             self.merge_strategy = self._get_merge_strategy(strategy_name=merge_strategy)
+        elif isinstance(merge_strategy, None):
+            raise ValueError(
+                "Must provide a merge_strategy: since the value received is None, you probably forgot to fill in the field in the config file."
+            )
+        else:
+            raise ValueError(
+                f"merge_strategy must be a callable or a string. Received {type(merge_strategy)} instead."
+            )
 
     @staticmethod
     def _get_merge_strategy(strategy_name: str) -> Callable[..., ndarray]:
