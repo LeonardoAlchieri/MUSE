@@ -38,6 +38,20 @@ basicConfig(filename=f"logs/run/{_filename}.log", level=INFO)
 logger = getLogger(_filename)
 
 
+class MostFrequent(DummyClassifier):
+    def __init__(self, *, strategy="most_frequent", random_state=None, constant=None):
+        self.strategy = strategy
+        self.random_state = random_state
+        self.constant = constant
+
+
+class Uniform(DummyClassifier):
+    def __init__(self, *, strategy="uniform", random_state=None, constant=None):
+        self.strategy = strategy
+        self.random_state = random_state
+        self.constant = constant
+
+
 def main(random_state: int):
     set_seed(random_state)
 
@@ -110,8 +124,8 @@ def main(random_state: int):
 
     # TODO: do some optimization with regard the hyperparameter
     ml_models: list[ClassifierMixin] = [
-        DummyClassifier(strategy="most_frequent"),
-        DummyClassifier(strategy="uniform"),
+        MostFrequent(),
+        Uniform(),
     ]
 
     # "average" # or "remove_user", "previous_val", "mediam", "most_frequent"
