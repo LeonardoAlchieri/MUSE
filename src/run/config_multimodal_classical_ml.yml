@@ -18,7 +18,7 @@ unravelled: True
 st_feat: True
 cp_all_config: True
 feature_selection: False
-probability: False
+probability: True
 shuffle_cv: False # DANGER: may not be correct when True
 feature_selection_configs:
   criterion: 'mutual information' # available: correlation, mutual information, chi-square, f_classif
@@ -27,6 +27,6 @@ feature_selection_configs:
   joined: False
   deep_features: False
 models_config:
-  ECG_features: 'SVM' # available are: GaussianProcess, AdaBoost, QDA and SVM
+  ECG_features: 'GaussianProcess' # available are: GaussianProcess, AdaBoost, QDA and SVM
   GSR_features: # available are: GaussianProcess, AdaBoost, QDA and SVM
-  ST_features: 'SVM' # available are: GaussianProcess, AdaBoost, QDA and SVM
+  ST_features: 'GaussianProcess' # available are: GaussianProcess, AdaBoost, QDA and SVM

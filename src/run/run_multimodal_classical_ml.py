@@ -140,7 +140,12 @@ def main(random_state: int):
             )
 
             scores = cross_validation(
-                x=x, y=y, estimator=multimodal_classifier, cv=cv, n_jobs=n_jobs_cv
+                x=x,
+                y=y,
+                estimator=multimodal_classifier,
+                cv=cv,
+                n_jobs=n_jobs_cv,
+                n_repeats=0,
             )
 
             # TODO: deal with explainability scores: here just ignoring

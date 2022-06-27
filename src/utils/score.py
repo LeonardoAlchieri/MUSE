@@ -109,11 +109,15 @@ def fit_and_score(
         n_jobs: int = kwargs["n_jobs"]
     else:
         n_jobs: int = 1
-    feature_importances: tuple[
-        dict[str, ndarray], ndarray | None
-    ] = estimator.feature_importance(
-        x=x_test, y=y_test, n_repeats=n_repeats, n_jobs=n_jobs
-    )
+
+    if n_repeats != 0:
+        feature_importances: tuple[
+            dict[str, ndarray], ndarray | None
+        ] = estimator.feature_importance(
+            x=x_test, y=y_test, n_repeats=n_repeats, n_jobs=n_jobs
+        )
+    else:
+        feature_importances: tuple[dict[str, ndarray], ndarray | None] = (None, None)
 
     if cm:
         confusion_matrix = estimator.confusion_matrix(x=x_test, y=y_test)
