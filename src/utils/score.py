@@ -137,7 +137,7 @@ def cross_validation(
     cv: Iterable[tuple[ndarray, ndarray]],
     cm: bool = False,
     n_jobs: int | None = None,
-    n_repeats: int = 10,
+    n_repeats: int = 1,
     **kwargs,
 ) -> list[tuple[float, tuple[dict[str, ndarray], ndarray | None], ndarray]]:
 
