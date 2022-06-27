@@ -1,5 +1,4 @@
 from typing import Callable, Iterable
-from os.path import basename
 from logging import getLogger
 from numpy import array, mean, ndarray
 from numpy import round as approximate

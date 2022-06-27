@@ -9,7 +9,7 @@ fusion_method: # correctly accepted: majority_voting, max, average or the follow
   - 'GaussianProcess'
   - 'AdaBoost'
   # - 'majority_voting' # DO NOT RUN IF PROBABILITY IS TRUE: DOES NOT MAKE SENSE!
-  # - 'QDA'
+  - 'QDA'
   - 'SVM'
 remove_sensor: 'GSR_features' # if empty, all shall be used; accepted values: ECG_features, ST_features, GSR_features
 binary: True

@@ -1,21 +1,12 @@
-from gc import collect as picking_trash_up
 from logging import DEBUG, INFO, WARNING, basicConfig, getLogger
 from os.path import basename
 from os.path import join as join_paths
 from sys import path
-from typing import Callable
 
 from numpy import ndarray, sqrt
 from numpy.random import seed as set_seed
 from pandas import DataFrame
 from sklearn.base import ClassifierMixin
-from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
-from sklearn.ensemble import AdaBoostClassifier
-from sklearn.svm import SVC
-from sklearn.gaussian_process import GaussianProcessClassifier
-from sklearn.gaussian_process.kernels import Matern
-from sklearn.metrics import accuracy_score
-from sklearn.model_selection import cross_val_score
 from tqdm import tqdm
 
 path.append(".")
@@ -30,7 +21,6 @@ from src.utils.io import (
     delete_output_folder_exception,
     load_config,
 )
-from src.utils.score import Merger
 
 
 _filename: str = basename(__file__).split(".")[0][4:]
@@ -153,7 +143,7 @@ def main(random_state: int):
                 x=x, y=y, estimator=multimodal_classifier, cv=cv, n_jobs=n_jobs_cv
             )
 
-            # TODO: deal with explainability scores
+            # TODO: deal with explainability scores: here just ignoring
             results[f"{current_feature_names} {fusion_method}"] = [
                 score[0] for score in scores
             ]
