@@ -1,12 +1,21 @@
+from gc import collect as picking_trash_up
 from logging import DEBUG, INFO, WARNING, basicConfig, getLogger
 from os.path import basename
 from os.path import join as join_paths
 from sys import path
+from typing import Callable
 
 from numpy import ndarray, sqrt
 from numpy.random import seed as set_seed
 from pandas import DataFrame
 from sklearn.base import ClassifierMixin
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.svm import SVC
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import Matern
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import cross_val_score
 from tqdm import tqdm
 
 path.append(".")
@@ -21,6 +30,7 @@ from src.utils.io import (
     delete_output_folder_exception,
     load_config,
 )
+from src.utils.score import Merger
 
 
 _filename: str = basename(__file__).split(".")[0][4:]
@@ -61,11 +71,9 @@ def main(random_state: int):
             path_to_config=path_to_config, task=_filename, cp_all_config=cp_all_config
         )
     else:
-        n_jobs: int = 1
-        n_jobs_cv: int = 1
         print("DEBUG MODE ACTIVATED!")
 
-    data = SmileData(path_to_data=path_to_data, test=False, debug_mode=False)
+    data = SmileData(path_to_data=path_to_data, test=False, debug_mode=debug_mode)
 
     if feature_selection:
         data.feature_selection(**feature_selection_configs)
@@ -140,18 +148,10 @@ def main(random_state: int):
             )
 
             scores = cross_validation(
-                x=x,
-                y=y,
-                estimator=multimodal_classifier,
-                cv=cv,
-                n_jobs=n_jobs_cv,
-                n_repeats=0,
+                x=x, y=y, estimator=multimodal_classifier, cv=cv, n_jobs=n_jobs_cv
             )
 
-            # TODO: deal with explainability scores: here just ignoring
-            results[f"{current_feature_names} {fusion_method}"] = [
-                score[0] for score in scores
-            ]
+            results[f"{current_feature_names} {fusion_method}"] = scores
 
     results.loc["mean"] = results.mean(axis=0)
     results.loc["se"] = results.std(axis=0) / sqrt(cv_num)
