@@ -98,7 +98,7 @@ def create_output_folder(
         if the current identified session exists, an error is thrown
     """
     namespace: str = getlogin()
-    base_output_path: str = "./results.nosync/train/"
+    base_output_path: str = "./results/train/"
     given_output_path: str = join_paths(base_output_path, task)
     logger.info(f"General output path: {given_output_path}")
     check_create_folder(path=given_output_path)
@@ -141,7 +141,7 @@ def create_output_folder(
 @get_execution_time_log
 def delete_output_folder_exception(task: str) -> bool:
     namespace: str = getlogin()
-    base_output_path: str = "./results.nosync/train/"
+    base_output_path: str = "./results/train/"
     given_output_path: str = join_paths(base_output_path, task)
     logger.info(f"General output path: {given_output_path}")
     check_create_folder(path=given_output_path)

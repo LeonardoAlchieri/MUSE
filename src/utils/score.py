@@ -1,5 +1,4 @@
 from typing import Callable, Iterable
-from os.path import basename
 from logging import getLogger
 from numpy import array, mean, ndarray
 from numpy import round as approximate
@@ -21,6 +20,14 @@ class Merger:
             self.merge_strategy = merge_strategy
         elif isinstance(merge_strategy, str):
             self.merge_strategy = self._get_merge_strategy(strategy_name=merge_strategy)
+        elif isinstance(merge_strategy, None):
+            raise ValueError(
+                "Must provide a merge_strategy: since the value received is None, you probably forgot to fill in the field in the config file."
+            )
+        else:
+            raise ValueError(
+                f"merge_strategy must be a callable or a string. Received {type(merge_strategy)} instead."
+            )
 
     @staticmethod
     def _get_merge_strategy(strategy_name: str) -> Callable[..., ndarray]:
@@ -70,7 +77,11 @@ def fit_and_score(
     y: ndarray,
     train_idx: ndarray,
     test_idx: ndarray,
-) -> float:
+    cm: bool,
+    **kwargs,
+) -> tuple[float, tuple[dict[str, ndarray], ndarray | None], ndarray] | tuple[
+    float, tuple[dict[str, ndarray], ndarray | None]
+]:
     if isinstance(x, dict):
         logger.info(f"x Input is dictionary")
         x_train: dict[str, ndarray] = {
@@ -89,7 +100,37 @@ def fit_and_score(
 
     estimator.fit(deepcopy(x_train), deepcopy(y_train))
 
-    return estimator.score(deepcopy(x_test), deepcopy(y_test))
+    if "n_repeats" in kwargs.keys():
+        n_repeats: int = kwargs["n_repeats"]
+    else:
+        n_repeats: int = 1
+
+    if "n_jobs" in kwargs.keys():
+        n_jobs: int = kwargs["n_jobs"]
+    else:
+        n_jobs: int = 1
+
+    if n_repeats != 0:
+        feature_importances: tuple[
+            dict[str, ndarray], ndarray | None
+        ] = estimator.feature_importance(
+            x=x_test, y=y_test, n_repeats=n_repeats, n_jobs=n_jobs
+        )
+    else:
+        feature_importances: tuple[dict[str, ndarray], ndarray | None] = (None, None)
+
+    if cm:
+        confusion_matrix = estimator.confusion_matrix(x=x_test, y=y_test)
+        return (
+            estimator.score(deepcopy(x_test), deepcopy(y_test)),
+            feature_importances,
+            confusion_matrix,
+        )
+    else:
+        return (
+            estimator.score(deepcopy(x_test), deepcopy(y_test)),
+            feature_importances,
+        )
 
 
 def cross_validation(
@@ -97,9 +138,11 @@ def cross_validation(
     y: ndarray,
     estimator: ClassifierMixin,
     cv: Iterable[tuple[ndarray, ndarray]],
+    cm: bool = False,
     n_jobs: int | None = None,
+    n_repeats: int = 1,
     **kwargs,
-) -> list[float]:
+) -> list[tuple[float, tuple[dict[str, ndarray], ndarray | None], ndarray]]:
 
     if "parallel" in kwargs:
         parallel_args: dict = kwargs["parallel"]
@@ -123,6 +166,9 @@ def cross_validation(
                 y=deepcopy(y),
                 train_idx=train_idx,
                 test_idx=test_idx,
+                n_repeats=n_repeats,
+                n_jobs=n_jobs,
+                cm=cm,
             )
             for train_idx, test_idx in cv
         )
@@ -134,6 +180,9 @@ def cross_validation(
                 y=y,
                 train_idx=train_idx,
                 test_idx=test_idx,
+                n_repeats=n_repeats,
+                n_jobs=n_jobs,
+                cm=cm,
             )
             for train_idx, test_idx in cv
         ]
