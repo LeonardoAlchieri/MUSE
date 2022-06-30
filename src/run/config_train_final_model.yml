@@ -3,7 +3,7 @@ time_length: 10
 path_to_data_train: "./data.nosync/dataset_smile_challenge_unravelled_train_cut10_stadd.npy"
 path_to_data_test: "./data.nosync/dataset_smile_challenge_unravelled_test_cut10_stadd.npy"
 gaussian_process_kernel:  # correctly accepted: matern or empty string
-fusion_method: 'AdaBoost' # correctly accepted: majority_voting, max, average or the following models: GaussianProcess, AdaBoost, QDA and SVM
+fusion_method: 'QDA' # correctly accepted: majority_voting, max, average or the following models: GaussianProcess, AdaBoost, QDA and SVM
 features_selected:
   - 'ECG_features'
   - 'ST_features'
@@ -12,8 +12,8 @@ debug_mode: False
 unravelled: True
 st_feat: True
 cp_all_config: True
-feature_selection: True
-probability: False
+feature_selection: False
+probability: True
 feature_selection_configs:
   criterion: 'mutual information' # available: correlation, mutual information, chi-square, f_classif
   method: 'percentage' # avaible are 'percentage', 'fixed number' and 'p value'
@@ -21,5 +21,5 @@ feature_selection_configs:
   joined: False
   deep_features: False
 models_config:
-  ECG_features: 'SVM' # available are: GaussianProcess, AdaBoost, QDA and SVM
-  ST_features: 'SVM' # available are: GaussianProcess, AdaBoost, QDA and SVM
+  ECG_features: 'GaussianProcess' # available are: GaussianProcess, AdaBoost, QDA and SVM
+  ST_features: 'GaussianProcess' # available are: GaussianProcess, AdaBoost, QDA and SVM

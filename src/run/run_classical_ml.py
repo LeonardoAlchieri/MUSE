@@ -18,6 +18,7 @@ from sklearn.model_selection import cross_val_score
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
 from tqdm import tqdm
 from xgboost import XGBClassifier
 
@@ -56,6 +57,7 @@ def main(random_state: int):
 
     cv_num: int = configs["cross_validation_folds"]
     n_jobs: int = configs["n_jobs"]
+    n_jobs_cv: int = configs["n_jobs_cv"]
     time_length: int = configs["time_length"]
     path_to_data: str = configs["path_to_data"]
     missing_values_inputation: str = configs["missing_values_inputation"]
@@ -80,6 +82,9 @@ def main(random_state: int):
 
     if feature_selection:
         data.feature_selection(**feature_selection_configs)
+
+    if not unravelled:
+        data.separate_skin_temperature()
 
     if st_feat:
         features: list[tuple[str, str]] = [
@@ -114,7 +119,7 @@ def main(random_state: int):
     # TODO: do some optimization with regard the hyperparameter
     ml_models: list[ClassifierMixin] = [
         KNeighborsClassifier(n_jobs=n_jobs),
-        # SVC(verbose=1,),
+        SVC(),
         GaussianProcessClassifier(
             n_jobs=n_jobs,
             copy_X_train=False,
@@ -186,12 +191,14 @@ def main(random_state: int):
                     X=x,
                     y=y,
                     cv=cv,
-                    n_jobs=3,
+                    n_jobs=n_jobs_cv,
                     scoring=Merger(
                         scorer=accuracy_score,
                         merge_strategy=time_merge_strategy,
                         time_length=time_length,
-                    ).score,
+                    ).score
+                    if unravelled
+                    else None,
                     error_score="raise",
                 )
                 results[
