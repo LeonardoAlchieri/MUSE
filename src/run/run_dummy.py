@@ -5,22 +5,14 @@ from os.path import join as join_paths
 from sys import path
 from typing import Callable
 
+from tqdm import tqdm
 from numpy import ndarray
 from numpy.random import seed as set_seed
 from pandas import DataFrame
 from sklearn.base import ClassifierMixin
-from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
-from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
-from sklearn.gaussian_process import GaussianProcessClassifier
-from sklearn.gaussian_process.kernels import Matern
+from sklearn.dummy import DummyClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import cross_val_score
-from sklearn.naive_bayes import GaussianNB
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.svm import SVC
-from tqdm import tqdm
-from xgboost import XGBClassifier
 
 path.append(".")
 from src.data.smile import SmileData
@@ -44,6 +36,20 @@ from src.utils.score import Merger
 _filename: str = basename(__file__).split(".")[0][4:]
 basicConfig(filename=f"logs/run/{_filename}.log", level=INFO)
 logger = getLogger(_filename)
+
+
+class MostFrequent(DummyClassifier):
+    def __init__(self, *, strategy="most_frequent", random_state=None, constant=None):
+        self.strategy = strategy
+        self.random_state = random_state
+        self.constant = constant
+
+
+class Uniform(DummyClassifier):
+    def __init__(self, *, strategy="uniform", random_state=None, constant=None):
+        self.strategy = strategy
+        self.random_state = random_state
+        self.constant = constant
 
 
 def main(random_state: int):
@@ -118,21 +124,8 @@ def main(random_state: int):
 
     # TODO: do some optimization with regard the hyperparameter
     ml_models: list[ClassifierMixin] = [
-        KNeighborsClassifier(n_jobs=n_jobs),
-        SVC(),
-        GaussianProcessClassifier(
-            n_jobs=n_jobs,
-            copy_X_train=False,
-            kernel=Matern(length_scale=1.0, nu=0.1)
-            if gaussian_process_kernel == "matern"
-            else None,
-        ),  # this is O(m^3) in memory!!!
-        DecisionTreeClassifier(),
-        AdaBoostClassifier(),
-        GaussianNB(),
-        QuadraticDiscriminantAnalysis(),
-        RandomForestClassifier(n_jobs=n_jobs),
-        XGBClassifier(n_jobs=n_jobs),
+        MostFrequent(),
+        Uniform(),
     ]
 
     # "average" # or "remove_user", "previous_val", "mediam", "most_frequent"
