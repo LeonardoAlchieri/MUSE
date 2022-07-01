@@ -41,11 +41,11 @@ For more information, and to use the data:
 }
 ```
 
-For referrencing this work, plase reference:
+For referrencing this work, please reference:
 ```latex
 INSERT CITATION
 ```
 
-@2022, Leonardo Alchieri, Nouran Abdalazim, Shkurta Gashi, Lidia Alecci, prof. Silvia Santini
+@2022, Leonardo Alchieri, Nouran Abdalazim, Lidia Alecci, prof. Silvia Santini, Shkurta Gashi
 
 <sub>People-Centered Computing Lab - Università della Svizzera italiana, Switzerland</sub>
